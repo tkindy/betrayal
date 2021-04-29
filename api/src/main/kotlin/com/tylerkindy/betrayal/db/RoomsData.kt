@@ -1,6 +1,7 @@
 package com.tylerkindy.betrayal.db
 
 import com.tylerkindy.betrayal.Direction
+import com.tylerkindy.betrayal.Floor
 import com.tylerkindy.betrayal.GridLoc
 import com.tylerkindy.betrayal.Room
 import com.tylerkindy.betrayal.defs.rooms
@@ -31,37 +32,39 @@ fun getRooms(gameId: String): List<Room> {
     }
 }
 
-private data class StartingRoom(
+data class StartingRoom(
     val roomDefId: Short,
-    val loc: GridLoc
+    val loc: GridLoc,
+    val floor: Floor
 )
 
 val entranceHallLoc = GridLoc(4, 3)
 const val entranceHallDefId: Short = 0
-private val startingRooms = listOf(
+val startingRooms = listOf(
     // Entrance Hall
-    StartingRoom(entranceHallDefId, entranceHallLoc),
+    StartingRoom(entranceHallDefId, entranceHallLoc, Floor.GROUND),
     // Foyer
-    StartingRoom(1, GridLoc(3, 3)),
+    StartingRoom(1, GridLoc(3, 3), Floor.GROUND),
     // Grand Staircase
-    StartingRoom(2, GridLoc(2, 3)),
+    StartingRoom(2, GridLoc(2, 3), Floor.GROUND),
     // Upper Landing
-    StartingRoom(8, GridLoc(-8, -8)),
+    StartingRoom(8, GridLoc(-8, -8), Floor.UPPER),
     // Roof Landing
-    StartingRoom(10, GridLoc(10, -8)),
+    StartingRoom(10, GridLoc(10, -8), Floor.ROOF),
     // Basement Landing
-    StartingRoom(33, GridLoc(2, 12))
+    StartingRoom(33, GridLoc(2, 12), Floor.BASEMENT)
 )
 val startingRoomIds = startingRooms.map { it.roomDefId }
 
 fun insertStartingRooms(gameId: String) {
     transaction {
-        Rooms.batchInsert(startingRooms) { (roomDefId, loc) ->
+        Rooms.batchInsert(startingRooms) { (roomDefId, loc, floor) ->
             this[Rooms.gameId] = gameId
             this[Rooms.roomDefId] = roomDefId
             this[Rooms.gridX] = loc.gridX
             this[Rooms.gridY] = loc.gridY
             this[Rooms.rotation] = 0
+            this[Rooms.floor] = floor.defEncoding.toString()
         }
     }
 }
@@ -203,7 +206,8 @@ data class DbRoom(
     val roomDefId: Short,
     val gridX: Int,
     val gridY: Int,
-    val rotation: Short
+    val rotation: Short,
+    val floor: Floor?
 )
 
 fun ResultRow.toDbRoom() =
@@ -213,5 +217,6 @@ fun ResultRow.toDbRoom() =
         roomDefId = this[Rooms.roomDefId],
         gridX = this[Rooms.gridX],
         gridY = this[Rooms.gridY],
-        rotation = this[Rooms.rotation]
+        rotation = this[Rooms.rotation],
+        floor = this[Rooms.floor]?.let { Floor.parse(it[0]) }
     )

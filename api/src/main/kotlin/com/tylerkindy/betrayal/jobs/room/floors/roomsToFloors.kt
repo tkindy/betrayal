@@ -1,31 +1,91 @@
 package com.tylerkindy.betrayal.jobs.room.floors
 
+import com.tylerkindy.betrayal.Floor
+import com.tylerkindy.betrayal.GridLoc
 import com.tylerkindy.betrayal.connectToDatabase
 import com.tylerkindy.betrayal.db.*
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.update
 
 fun main(argsArray: Array<String>) {
     val args = argsArray.toArgs()
     connectToDatabase()
 
-    transaction {
-        Games.selectAll()
-    }
-        .map(ResultRow::toGame)
-        .forEach {
-            val rooms = Rooms.select { Rooms.gameId eq it.id }
-                .map(ResultRow::toDbRoom)
+    associateRoomsToFloors()
+}
 
-            associateToFloors(rooms)
+fun associateRoomsToFloors() {
+    transaction {
+        Games.selectAll().map(ResultRow::toGame)
+    }
+        .forEach {
+            transaction {
+                val rooms = Rooms.select { Rooms.gameId eq it.id }
+                    .map(ResultRow::toDbRoom)
+
+                associateToFloors(rooms).forEach { withFloor ->
+                    Rooms.update(where = { Rooms.id eq withFloor.id }) {
+                        it[floor] = withFloor.floor?.defEncoding?.toString()
+                    }
+                }
+            }
         }
 }
 
 fun associateToFloors(rooms: List<DbRoom>): List<DbRoom> {
-    
+    return associateToFloorsHelp(rooms, null)
 }
+
+fun associateToFloorsHelp(rooms: List<DbRoom>, lastMap: RoomMap?): List<DbRoom> {
+    val map = buildRoomMap(rooms)
+    if (map == lastMap) {
+        return rooms
+    }
+
+    return associateToFloorsHelp(
+        rooms
+            .filter { it.floor == null }
+            .map { it.copy(floor = associateToFloor(it, map)) },
+        map
+    )
+}
+
+fun associateToFloor(room: DbRoom, map: RoomMap): Floor? {
+    val neighbors = getNeighbors(room, map)
+    return neighbors.map(::getFloor)
+        .groupBy { it }
+        .maxByOrNull { it.value.size }
+        ?.key
+}
+
+fun getNeighbors(room: DbRoom, map: RoomMap): List<DbRoom> {
+    val neighborLocs: List<GridLoc> = ((room.gridX - 1)..(room.gridX + 1))
+        .fold(listOf()) { acc, x ->
+            acc + ((room.gridY - 1)..(room.gridY + 1)).map { y ->
+                GridLoc(x, y)
+            }
+        }
+
+    return neighborLocs.mapNotNull { (x, y) -> map[x]?.get(y) }
+}
+
+fun getFloor(room: DbRoom): Floor? {
+    return room.floor ?: startingRooms.firstOrNull {
+        it.roomDefId == room.roomDefId
+    }?.floor
+
+}
+
+fun buildRoomMap(rooms: List<DbRoom>): RoomMap =
+    rooms.fold(emptyMap()) { acc, room ->
+        val row = (acc[room.gridX] ?: emptyMap()) + (room.gridY to room)
+        acc + (room.gridX to row)
+    }
+
+typealias RoomMap = Map<Int, Map<Int, DbRoom>>
 
 data class Args(val write: Boolean)
 
