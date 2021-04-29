@@ -59,6 +59,11 @@ fun associateToFloorsHelp(rooms: List<DbRoom>, lastMap: RoomMap?): List<DbRoom> 
 }
 
 fun associateToFloor(room: DbRoom, map: RoomMap): Floor? {
+    val knownFloor = getFloor(room)
+    if (knownFloor != null) {
+        return knownFloor
+    }
+
     val neighbors = getNeighbors(room, map)
     val floors = neighbors
         .map(::getFloor)
@@ -71,11 +76,12 @@ fun associateToFloor(room: DbRoom, map: RoomMap): Floor? {
 
 fun getNeighbors(room: DbRoom, map: RoomMap): List<DbRoom> {
     val neighborLocs: List<GridLoc> = ((room.gridX - 1)..(room.gridX + 1))
-        .fold(listOf()) { acc, x ->
+        .fold<Int, List<GridLoc>>(listOf()) { acc, x ->
             acc + ((room.gridY - 1)..(room.gridY + 1)).map { y ->
                 GridLoc(x, y)
             }
         }
+        .filter { (x, y) -> !(x == room.gridX && y == room.gridY) }
 
     return neighborLocs.mapNotNull { (x, y) -> map[x]?.get(y) }
 }
