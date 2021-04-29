@@ -47,16 +47,24 @@ fun associateToFloorsHelp(rooms: List<DbRoom>, lastMap: RoomMap?): List<DbRoom> 
 
     return associateToFloorsHelp(
         rooms
-            .filter { it.floor == null }
-            .map { it.copy(floor = associateToFloor(it, map)) },
+            .map {
+                if (it.floor != null) {
+                    it
+                } else {
+                    it.copy(floor = associateToFloor(it, map))
+                }
+            },
         map
     )
 }
 
 fun associateToFloor(room: DbRoom, map: RoomMap): Floor? {
     val neighbors = getNeighbors(room, map)
-    return neighbors.map(::getFloor)
-        .groupBy { it }
+    val floors = neighbors
+        .map(::getFloor)
+        .groupBy { it } - null
+
+    return floors
         .maxByOrNull { it.value.size }
         ?.key
 }
