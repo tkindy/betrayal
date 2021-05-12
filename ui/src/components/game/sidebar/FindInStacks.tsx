@@ -29,7 +29,9 @@ const SearchResults: FC<SearchResultsProps> = ({ width, term }) => {
       {filtered.length ? (
         filtered.map((item) => <p key={item}>{item}</p>)
       ) : (
-        <p>No results</p>
+        <p>
+          <i>No results</i>
+        </p>
       )}
     </div>
   );
