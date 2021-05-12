@@ -6,6 +6,7 @@ import RoomStack from './roomStack/RoomStack';
 import DrawControl from './DrawControl';
 import AddMonsterControl from './AddMonsterControl';
 import DiceControl from './DiceControl';
+import FindInStacks from './FindInStacks';
 
 export const SIDEBAR_WIDTH = 215;
 export const SIDEBAR_MARGIN = 10;
@@ -54,6 +55,7 @@ const Sidebar: FunctionComponent<SidebarProps> = () => {
       }}
     >
       <ZoomControl />
+      <FindInStacks />
       <DrawControl />
       <DiceControl />
       <AddMonsterControl />
