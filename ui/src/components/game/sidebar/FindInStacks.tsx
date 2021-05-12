@@ -11,7 +11,9 @@ interface SearchResultsProps {
   term: string;
 }
 
-const SearchResults: FC<SearchResultsProps> = ({ width }) => {
+const SearchResults: FC<SearchResultsProps> = ({ width, term }) => {
+  const filtered = dummyItems.filter((item) => item.startsWith(term));
+
   return (
     <div
       style={{
@@ -21,19 +23,22 @@ const SearchResults: FC<SearchResultsProps> = ({ width }) => {
         padding: 5,
         borderRadius: 5,
         border: '1px solid black',
+        textAlign: 'center',
       }}
     >
-      {dummyItems.map((item) => (
-        <p key={item}>{item}</p>
-      ))}
+      {filtered.length ? (
+        filtered.map((item) => <p key={item}>{item}</p>)
+      ) : (
+        <p>No results</p>
+      )}
     </div>
   );
 };
 
 const FindInStacks: FC<{}> = () => {
+  const [term, setTerm] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const [expanded, setExpanded] = useState(false);
-  const term = inputRef.current?.value || '';
 
   return (
     <div className="find-in-stacks-container">
@@ -49,8 +54,10 @@ const FindInStacks: FC<{}> = () => {
         onBlur={() => {
           setExpanded(false);
         }}
+        onChange={(e) => setTerm(e.target.value)}
+        value={term}
       />
-      {expanded && (
+      {expanded && term && (
         <SearchResults width={inputRef.current?.clientWidth || 0} term={term} />
       )}
     </div>
