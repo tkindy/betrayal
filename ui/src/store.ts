@@ -9,6 +9,7 @@ import playersReducer from './features/players';
 import gameReducer from './features/game';
 import diceRollsReducer from './features/diceRolls';
 import monstersReducer from './features/monsters';
+import searchReducer from './features/search';
 
 const rootReducer = combineReducers({
   lobby: lobbyReducer,
@@ -20,6 +21,7 @@ const rootReducer = combineReducers({
   players: playersReducer,
   diceRolls: diceRollsReducer,
   monsters: monstersReducer,
+  search: searchReducer,
 });
 
 export const store = configureStore({
