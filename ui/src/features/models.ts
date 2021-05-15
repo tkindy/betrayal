@@ -161,3 +161,8 @@ export interface DiceRoll {
   values: number[];
   type: DiceRollType;
 }
+
+export interface SearchResult {
+  name: string;
+  type: 'EVENT' | 'ITEM' | 'OMEN' | 'ROOM';
+}

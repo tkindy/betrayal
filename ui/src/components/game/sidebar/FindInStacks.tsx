@@ -1,13 +1,5 @@
 import { FC, useRef, useState } from 'react';
-import { useSelector } from 'react-redux';
-import { searchStacks } from '../../../features/search';
-import { useAppDispatch } from '../../../hooks';
-import { RootState } from '../../../store';
-
-interface SearchResult {
-  name: string;
-  type: 'EVENT' | 'ITEM' | 'OMEN' | 'ROOM';
-}
+import { SearchResult } from '../../../features/models';
 
 const dummyItems: SearchResult[] = [
   { name: 'foo', type: 'ITEM' },

@@ -9,6 +9,7 @@ import {
   OmenCard,
   Player,
   Room,
+  SearchResult,
   StackRoom,
   TraitName,
 } from '../features/models';
@@ -237,4 +238,13 @@ export const returnRoomToStack: (
   await axios.post<void>(
     buildApiUrl(`/games/${gameId}/rooms/${roomId}/return`)
   );
+};
+
+export const searchStacks: (
+  gameId: string,
+  term: string
+) => Promise<SearchResult[]> = async (gameId, term) => {
+  return (
+    await axios.post<SearchResult[]>(`/games/${gameId}/search/stacks`, { term })
+  ).data;
 };
