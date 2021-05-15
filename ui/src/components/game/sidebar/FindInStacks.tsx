@@ -1,15 +1,11 @@
 import { FC, useRef, useState } from 'react';
-import { SearchResult } from '../../../features/models';
-
-const dummyItems: SearchResult[] = [
-  { name: 'foo', type: 'ITEM' },
-  { name: 'bar', type: 'EVENT' },
-  { name: 'baz', type: 'ROOM' },
-];
+import { useSelector } from 'react-redux';
+import { searchStacks } from '../../../features/search';
+import { useAppDispatch } from '../../../hooks';
+import { RootState } from '../../../store';
 
 interface SearchResultsProps {
   width: number;
-  term: string;
   onClickResult: () => void;
   onMouseEnterResult: () => void;
   onMouseLeaveResult: () => void;
@@ -17,12 +13,12 @@ interface SearchResultsProps {
 
 const SearchResults: FC<SearchResultsProps> = ({
   width,
-  term,
   onClickResult,
   onMouseEnterResult,
   onMouseLeaveResult,
 }) => {
-  const filtered = dummyItems.filter((item) => item.name.startsWith(term));
+  const results = useSelector((state: RootState) => state.search.results);
+  const hasResults = !!results?.length;
 
   return (
     <div
@@ -36,8 +32,8 @@ const SearchResults: FC<SearchResultsProps> = ({
         textAlign: 'center',
       }}
     >
-      {filtered.length ? (
-        filtered.map((item) => (
+      {hasResults ? (
+        results!!.map((item) => (
           <div key={item.name}>
             <button
               onClick={() => {
@@ -65,6 +61,12 @@ const FindInStacks: FC<{}> = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [inputFocused, setInputFocused] = useState(false);
   const [onResult, setOnResult] = useState(false);
+  const dispatch = useAppDispatch();
+
+  const updateTerm = (term: string) => {
+    setTerm(term);
+    dispatch(searchStacks({ term }));
+  };
 
   return (
     <div
@@ -82,13 +84,12 @@ const FindInStacks: FC<{}> = () => {
         }}
         placeholder="Find in stacks"
         ref={inputRef}
-        onChange={(e) => setTerm(e.target.value)}
+        onChange={(e) => updateTerm(e.target.value)}
         value={term}
       />
       {(inputFocused || onResult) && term && (
         <SearchResults
           width={inputRef.current?.clientWidth || 0}
-          term={term}
           onClickResult={() => {
             setTerm('');
           }}
