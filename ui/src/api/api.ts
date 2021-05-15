@@ -240,11 +240,21 @@ export const returnRoomToStack: (
   );
 };
 
+const dummyItems: SearchResult[] = [
+  { name: 'foo', type: 'ITEM' },
+  { name: 'bar', type: 'EVENT' },
+  { name: 'baz', type: 'ROOM' },
+];
+
 export const searchStacks: (
   gameId: string,
   term: string
 ) => Promise<SearchResult[]> = async (gameId, term) => {
-  return (
-    await axios.post<SearchResult[]>(`/games/${gameId}/search/stacks`, { term })
-  ).data;
+  // return (
+  //   await axios.post<SearchResult[]>(`/games/${gameId}/search/stacks`, { term })
+  // ).data;
+
+  return new Promise((resolve) => setTimeout(resolve, 1000)).then((_) =>
+    dummyItems.filter((item) => item.name.startsWith(term))
+  );
 };
