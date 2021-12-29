@@ -6,5 +6,19 @@
    :headers {"Content-Type" "text/html"}
    :body "Hello, World!"})
 
+(defonce server (atom nil))
+
+(defn start-server! [join?]
+  (reset! server (run-jetty handler {:port 3000
+                                     :join? join?})))
+
+(defn stop-server! []
+  (let [server @server]
+    (when server (.stop server))))
+
+(defn restart-server! []
+  (stop-server!)
+  (start-server! false))
+
 (defn -main []
-  (run-jetty handler {:port 3000}))
+  (start-server! true))
