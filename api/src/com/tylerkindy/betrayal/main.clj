@@ -1,5 +1,6 @@
 (ns com.tylerkindy.betrayal.main
-  (:require [ring.adapter.jetty :refer [run-jetty]]))
+  (:require [ring.adapter.jetty :refer [run-jetty]]
+            [reitit.ring :as r]))
 
 (defn handler [request]
   {:status 200
@@ -8,9 +9,17 @@
 
 (defonce server (atom nil))
 
+(def app
+  (r/ring-handler
+   (r/router
+    ["/" {:get handler}])
+   (constantly {:status 404})))
+
 (defn start-server! [join?]
-  (reset! server (run-jetty handler {:port 3000
-                                     :join? join?})))
+  (reset! server
+          (run-jetty app
+                     {:port 3000
+                      :join? join?})))
 
 (defn stop-server! []
   (let [server @server]
