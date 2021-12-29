@@ -13,7 +13,7 @@
   (r/ring-handler
    (r/router
     ["/" {:get handler}])
-   (constantly {:status 404})))
+   (r/create-default-handler)))
 
 (defn start-server! [join?]
   (reset! server
