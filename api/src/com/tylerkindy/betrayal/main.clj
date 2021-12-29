@@ -1,6 +1,7 @@
 (ns com.tylerkindy.betrayal.main
   (:require [ring.adapter.jetty :refer [run-jetty]]
-            [reitit.ring :as r]))
+            [reitit.ring :as r]
+            [reitit.coercion.malli :as c]))
 
 (defn handler [request]
   {:status 200
@@ -12,7 +13,7 @@
 (def app
   (r/ring-handler
    (r/router
-    ["/api"
+    ["/api" {:coercion c/coercion}
      ["/" {:get handler}]
      ["/games/{game-id}" {:get (fn [_] {:status 200})}]])
    (r/routes
