@@ -12,8 +12,12 @@
 (def app
   (r/ring-handler
    (r/router
-    ["/" {:get handler}])
-   (r/create-default-handler)))
+    ["/api"
+     ["/" {:get handler}]
+     ["/games/{game-id}" {:get (fn [_] {:status 200})}]])
+   (r/routes
+    (r/redirect-trailing-slash-handler {:method :strip})
+    (r/create-default-handler))))
 
 (defn start-server! [join?]
   (reset! server
