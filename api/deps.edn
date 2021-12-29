@@ -1,0 +1,2 @@
+{:aliases
+ {:web {:main-opts ["-m" "com.tylerkindy.betrayal.main"]}}}

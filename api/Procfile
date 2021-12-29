@@ -1,1 +1,1 @@
-web: build/install/betrayal-api/bin/betrayal-api
+web: clojure -M:web
