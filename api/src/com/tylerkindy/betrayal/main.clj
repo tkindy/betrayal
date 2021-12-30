@@ -14,7 +14,7 @@
   (r/ring-handler
    (r/router
     ["/api" {:coercion c/coercion}
-     ["/" {:get handler}]
+     ["" {:get handler}]
      ["/games/{game-id}" {:get (fn [_] {:status 200})}]])
    (r/routes
     (r/redirect-trailing-slash-handler {:method :strip})
