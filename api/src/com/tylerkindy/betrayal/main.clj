@@ -5,9 +5,10 @@
             [reitit.ring :as rr]))
 
 (defn handler [request]
-  {:status 200
-   :headers {"Content-Type" "text/html"}
-   :body "Hello, World!"})
+  (let [name (get-in request [:params :name])]
+    {:status 200
+     :headers {"Content-Type" "text/html"}
+     :body (str "Hello, " (or name "World") "!")}))
 
 (def router
   (rr/router
