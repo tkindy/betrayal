@@ -1,7 +1,8 @@
 {:deps {ring/ring-core {:mvn/version "1.9.4"}
         ring/ring-jetty-adapter {:mvn/version "1.9.4"}
+        ring/ring-defaults {:mvn/version "0.3.3"}
+        ring/ring-json {:mvn/version "0.5.1"}
         metosin/reitit-core {:mvn/version "0.5.15"}
-        metosin/reitit-ring {:mvn/version "0.5.15"}
-        metosin/reitit-malli {:mvn/version "0.5.15"}}
+        metosin/reitit-ring {:mvn/version "0.5.15"}}
  :aliases
  {:web {:main-opts ["-m" "com.tylerkindy.betrayal.main"]}}}
