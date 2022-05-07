@@ -48,9 +48,7 @@ const Sidebar: FunctionComponent<SidebarProps> = () => {
         backgroundColor: 'grey',
         borderRadius: 10,
         border: '2px solid black',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-around',
+        display: 'grid',
       }}
     >
       <ZoomControl />
