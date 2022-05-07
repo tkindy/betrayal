@@ -1,45 +1,46 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { createAppAsyncThunk } from './utils';
+import { addUpdateCase, createAppAsyncThunk } from './utils';
 import * as api from '../api/api';
 import { getGameId } from './selectors';
-import { DiceRoll, DiceRollType } from './models';
-import { receiveGameMessage } from './actions';
 
 interface RollDicePayload {
   numDice: number;
-  type: DiceRollType;
 }
 
 export const rollDice = createAppAsyncThunk(
   'rollDice',
   async (payload: RollDicePayload, { getState }) => {
-    return api.rollDice(getGameId(getState()), payload.numDice, payload.type);
+    return api.rollDice(getGameId(getState()), payload.numDice);
   }
 );
 
 interface DiceRollsState {
-  roll?: DiceRoll;
-  couldTriggerHaunt: boolean;
+  roll?: number[];
+  rolling: boolean;
 }
 
-const initialState: DiceRollsState = { couldTriggerHaunt: false };
-
-const isNewRoll = (roll: DiceRoll, lastRoll?: DiceRoll) =>
-  roll.id !== lastRoll?.id;
+const initialState: DiceRollsState = { rolling: false };
 
 const diceRollsSlice = createSlice({
   name: 'diceRolls',
   initialState,
   reducers: {},
   extraReducers: (builder) => {
-    builder.addCase(receiveGameMessage, (state, { payload: { update } }) => {
-      const roll = update.latestRoll;
-      const lastRoll = state.roll;
-      state.roll = roll || undefined;
+    builder
+      .addCase(rollDice.pending, (state) => {
+        state.roll = undefined;
+        state.rolling = true;
+      })
+      .addCase(rollDice.rejected, (state) => {
+        state.rolling = false;
+      })
+      .addCase(rollDice.fulfilled, (state, { payload: roll }) => {
+        state.roll = roll;
+        state.rolling = false;
+      });
 
-      if (roll && isNewRoll(roll, lastRoll)) {
-        state.couldTriggerHaunt = roll.type === 'HAUNT';
-      }
+    addUpdateCase(builder, (state, { payload: { message } }) => {
+      state.roll = message.latestRoll || undefined;
     });
   },
 });
