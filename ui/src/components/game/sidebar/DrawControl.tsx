@@ -30,6 +30,7 @@ const DrawControl: FunctionComponent<DrawControlProps> = () => {
   return (
     <div
       style={{
+        gridArea: 'card-draw',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-around',

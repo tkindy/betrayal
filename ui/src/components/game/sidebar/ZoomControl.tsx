@@ -11,6 +11,7 @@ const ZoomControl: FunctionComponent<ZoomControlProps> = () => {
   return (
     <div
       style={{
+        gridArea: 'zoom',
         display: 'flex',
         justifyContent: 'space-around',
         alignItems: 'center',

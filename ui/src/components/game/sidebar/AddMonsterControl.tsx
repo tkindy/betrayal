@@ -7,7 +7,14 @@ interface AddMonsterControlProps {}
 const AddMonsterControl: FunctionComponent<AddMonsterControlProps> = () => {
   const dispatch = useAppDispatch();
 
-  return <button onClick={() => dispatch(addMonster())}>Add monster</button>;
+  return (
+    <button
+      style={{ gridArea: 'add-monster' }}
+      onClick={() => dispatch(addMonster())}
+    >
+      Add monster
+    </button>
+  );
 };
 
 export default AddMonsterControl;

@@ -59,7 +59,7 @@ const Sidebar: FunctionComponent<SidebarProps> = () => {
           "add-monster"
           "."
           "."
-          "room-stack"
+          "."
           "room-stack"
           "room-stack"
           "room-stack"

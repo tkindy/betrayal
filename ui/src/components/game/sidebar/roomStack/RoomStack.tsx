@@ -6,7 +6,14 @@ interface RoomStackProps {}
 
 const RoomStack: FunctionComponent<RoomStackProps> = () => {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
+    <div
+      style={{
+        gridArea: 'room-stack',
+        alignSelf: 'end',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
       <StackRoom />
       <RoomStackControl />
     </div>
