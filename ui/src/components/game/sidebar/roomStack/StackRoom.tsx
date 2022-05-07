@@ -16,6 +16,7 @@ import { Group, Layer, Line, Rect, Stage, Text } from 'react-konva';
 import { ReactReduxContext } from 'react-redux';
 import FlippedStackRoom from './FlippedStackRoom';
 import { useAppSelector } from '../../../../hooks';
+import { useWindowDimensions } from '../../../windowDimensions';
 
 interface RoofPoints {
   peak: Point;
@@ -214,11 +215,17 @@ const StackRoom: FunctionComponent<{}> = () => {
     width: 0,
     height: 0,
   });
-  const wrapperRef = useCallback((node: HTMLElement | null) => {
-    if (node != null) {
-      setDimensions(node.getBoundingClientRect());
-    }
-  }, []);
+  const windowDimensions = useWindowDimensions();
+  const wrapperRef = useCallback(
+    (node: HTMLElement | null) => {
+      if (node != null) {
+        setDimensions(node.getBoundingClientRect());
+      }
+    },
+    // Need this dep to rerun on window resize
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [windowDimensions]
+  );
 
   const size = Math.min(width, height);
   const box = {
