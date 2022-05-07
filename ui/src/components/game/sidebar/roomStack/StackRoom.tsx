@@ -215,7 +215,7 @@ const StackRoom: FunctionComponent<{}> = () => {
     height: 0,
   });
   const wrapperRef = useCallback((node: HTMLElement | null) => {
-    if (node !== null) {
+    if (node != null) {
       setDimensions(node.getBoundingClientRect());
     }
   }, []);
@@ -227,7 +227,7 @@ const StackRoom: FunctionComponent<{}> = () => {
   };
 
   return (
-    <div style={{ flex: '0 1 200px' }} ref={wrapperRef}>
+    <div style={{ gridArea: 'room-stack' }} ref={wrapperRef}>
       <ReactReduxContext.Consumer>
         {(reduxContext) => (
           <Stage width={width} height={height}>

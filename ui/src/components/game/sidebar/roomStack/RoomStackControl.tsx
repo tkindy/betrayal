@@ -53,7 +53,10 @@ const RoomStackControl: FunctionComponent<RoomStackControlProps> = () => {
   const flippedRoom = useAppSelector((state) => state.roomStack.flippedRoom);
 
   return (
-    <div className="room-stack-control">
+    <div
+      style={{ gridArea: 'room-stack-controls' }}
+      className="room-stack-control"
+    >
       {flippedRoom ? <FlippedRoomButtons /> : <StackButtons />}
     </div>
   );
