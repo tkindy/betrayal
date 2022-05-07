@@ -49,6 +49,22 @@ const Sidebar: FunctionComponent<SidebarProps> = () => {
         borderRadius: 10,
         border: '2px solid black',
         display: 'grid',
+        gridTemplateRows: 'repeat(12, 1fr)',
+        rowGap: '10px',
+        gridTemplateAreas: `
+          "zoom"
+          "card-draw"
+          "card-draw"
+          "card-draw"
+          "add-monster"
+          "."
+          "."
+          "room-stack"
+          "room-stack"
+          "room-stack"
+          "room-stack"
+          "room-stack"
+        `,
       }}
     >
       <ZoomControl />
