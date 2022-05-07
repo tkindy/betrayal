@@ -49,3 +49,14 @@ export const sortBy: <T>(
 
   return mapped.map(({ index }) => array[index]);
 };
+
+export const delayAtLeast: <T>(
+  callback: () => Promise<T>,
+  millis: number
+) => Promise<T> = async (callback, millis) => {
+  const [p] = await Promise.all([
+    callback(),
+    new Promise((resolve) => setTimeout(resolve, millis)),
+  ]);
+  return p;
+};

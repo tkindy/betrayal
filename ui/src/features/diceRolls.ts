@@ -1,48 +1,61 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { addUpdateCase, createAppAsyncThunk } from './utils';
 import * as api from '../api/api';
 import { getGameId } from './selectors';
+import { choices, delayAtLeast } from '../utils';
 
 interface RollDicePayload {
   numDice: number;
 }
 
+const randomRoll = (numDice: number) => {
+  const universe = [0, 1, 2];
+  return choices(universe, numDice);
+};
+
 export const rollDice = createAppAsyncThunk(
-  'rollDice',
-  async (payload: RollDicePayload, { getState }) => {
-    return api.rollDice(getGameId(getState()), payload.numDice);
+  'requestRollDice',
+  async (payload: RollDicePayload, { getState, dispatch }) => {
+    dispatch(setRoll(randomRoll(payload.numDice)));
+    const interval = setInterval(() => {
+      dispatch(setRoll(randomRoll(payload.numDice)));
+    }, 75);
+
+    const roll = await delayAtLeast(
+      () => api.rollDice(getGameId(getState()), payload.numDice),
+      600
+    );
+
+    clearInterval(interval);
+    return roll;
   }
 );
 
 interface DiceRollsState {
   roll?: number[];
-  rolling: boolean;
 }
 
-const initialState: DiceRollsState = { rolling: false };
+const initialState: DiceRollsState = {};
 
 const diceRollsSlice = createSlice({
   name: 'diceRolls',
   initialState,
-  reducers: {},
+  reducers: {
+    setRoll: (state, action: PayloadAction<number[]>) => {
+      state.roll = action.payload;
+    },
+  },
   extraReducers: (builder) => {
-    builder
-      .addCase(rollDice.pending, (state) => {
-        state.roll = undefined;
-        state.rolling = true;
-      })
-      .addCase(rollDice.rejected, (state) => {
-        state.rolling = false;
-      })
-      .addCase(rollDice.fulfilled, (state, { payload: roll }) => {
-        state.roll = roll;
-        state.rolling = false;
-      });
+    builder.addCase(rollDice.pending, (state) => {
+      state.roll = undefined;
+    });
 
     addUpdateCase(builder, (state, { payload: { message } }) => {
       state.roll = message.latestRoll || undefined;
     });
   },
 });
+
+export const { setRoll } = diceRollsSlice.actions;
 
 export default diceRollsSlice.reducer;
