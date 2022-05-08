@@ -4,7 +4,7 @@ import * as api from '../api/api';
 import { getGameId } from './selectors';
 import { choices, delayAtLeast } from '../utils';
 
-interface RollDicePayload {
+export interface RollDicePayload {
   numDice: number;
 }
 
