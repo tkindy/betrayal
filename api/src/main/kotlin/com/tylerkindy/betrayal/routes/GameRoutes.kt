@@ -1,10 +1,16 @@
 package com.tylerkindy.betrayal.routes
 
 import com.tylerkindy.betrayal.*
+import com.tylerkindy.betrayal.db.CardStackContents
+import com.tylerkindy.betrayal.db.CardStacks
 import com.tylerkindy.betrayal.db.Games
 import com.tylerkindy.betrayal.db.Players
 import com.tylerkindy.betrayal.defs.CardType
+import com.tylerkindy.betrayal.defs.events
+import com.tylerkindy.betrayal.defs.items
+import com.tylerkindy.betrayal.defs.omens
 import com.tylerkindy.betrayal.routes.GameClientMessage.NameMessage
+import com.tylerkindy.betrayal.routes.GameClientMessage.SearchCardStack
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
@@ -16,6 +22,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import org.jetbrains.exposed.sql.JoinType
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -79,10 +86,35 @@ val gameRoutes: Routing.() -> Unit = {
                                 "Unexpected client message"
                             )
                         )
+
+                    when (message) {
+                        is SearchCardStack -> {
+                            searchCardStack(gameId, message.type)
+                        }
+                    }
                 }
             }
         }
     }
+}
+
+suspend fun WebSocketSession.searchCardStack(gameId: String, type: CardType) {
+    val cardDefs = when (type) {
+        CardType.EVENT -> events
+        CardType.ITEM -> items
+        CardType.OMEN -> omens
+    }
+
+    val cards = transaction {
+        CardStackContents.join(CardStacks, JoinType.INNER, CardStackContents.stackId, CardStacks.id)
+            .select { (CardStacks.gameId eq gameId) and (CardStacks.cardTypeId eq type.id) }
+            .map { row ->
+                cardDefs[row[CardStackContents.cardDefId]]!!.toCard()
+            }
+    }
+        .sortedBy { it.name }
+
+    send(Json.encodeToString(GameServerMessage.CardStackContents(cards) as GameServerMessage))
 }
 
 @Serializable
