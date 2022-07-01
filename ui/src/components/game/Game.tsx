@@ -113,9 +113,11 @@ const Game: FC<{}> = () => {
           </Stage>
         )}
       </ReactReduxContext.Consumer>
-      <Sidebar />
-      <CharacterBar />
-      <DrawnCard />
+      <SendContext.Provider value={send}>
+        <Sidebar />
+        <CharacterBar />
+        <DrawnCard />
+      </SendContext.Provider>
     </div>
   );
 };
