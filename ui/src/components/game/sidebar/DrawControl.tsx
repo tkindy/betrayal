@@ -24,6 +24,10 @@ const buttonProps: DrawButtonProps[] = [
   { entity: 'omen', thunk: drawOmen },
 ];
 
+const SearchStackButton: FunctionComponent<{}> = () => {
+  return <button style={{ margin: '5px 2px' }}>🔍</button>;
+};
+
 interface DrawControlProps {}
 
 const DrawControl: FunctionComponent<DrawControlProps> = () => {
@@ -36,7 +40,17 @@ const DrawControl: FunctionComponent<DrawControlProps> = () => {
       }}
     >
       {buttonProps.map((props) => (
-        <DrawButton key={props.entity} {...props} />
+        <div
+          key={props.entity}
+          style={{
+            flex: '0 1 50px',
+            display: 'grid',
+            gridTemplateColumns: '75% 25%',
+          }}
+        >
+          <DrawButton {...props} />
+          <SearchStackButton />
+        </div>
       ))}
     </div>
   );
