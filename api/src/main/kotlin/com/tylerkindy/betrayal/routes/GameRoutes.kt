@@ -3,6 +3,7 @@ package com.tylerkindy.betrayal.routes
 import com.tylerkindy.betrayal.*
 import com.tylerkindy.betrayal.db.Games
 import com.tylerkindy.betrayal.db.Players
+import com.tylerkindy.betrayal.defs.CardType
 import com.tylerkindy.betrayal.routes.GameClientMessage.NameMessage
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -76,6 +77,10 @@ sealed class GameClientMessage {
     @Serializable
     @SerialName("name")
     data class NameMessage(val name: String) : GameClientMessage()
+
+    @Serializable
+    @SerialName("search-card-stack")
+    data class SearchCardStack(val type: CardType) : GameClientMessage()
 }
 
 @Serializable
@@ -90,4 +95,8 @@ sealed class GameServerMessage {
         val latestRoll: DiceRoll?,
         val monsters: List<Monster>
     ) : GameServerMessage()
+
+    @Serializable
+    @SerialName("card-stack-contents")
+    data class CardStackContents(val contents: List<Card>) : GameServerMessage()
 }
