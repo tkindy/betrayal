@@ -91,6 +91,15 @@ val gameRoutes: Routing.() -> Unit = {
                         is SearchCardStack -> {
                             searchCardStack(gameId, message.type)
                         }
+
+                        is NameMessage -> {
+                            return@webSocket close(
+                                CloseReason(
+                                    CloseReason.Codes.VIOLATED_POLICY,
+                                    "Unexpected name message"
+                                )
+                            )
+                        }
                     }
                 }
             }
