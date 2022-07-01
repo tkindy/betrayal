@@ -11,6 +11,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
+import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -64,8 +65,20 @@ val gameRoutes: Routing.() -> Unit = {
                         )
                     )
 
-                gameUpdateManager.getUpdates(gameId).collect { update ->
-                    send(Json.encodeToString(update as GameServerMessage))
+                launch {
+                    gameUpdateManager.getUpdates(gameId).collect { update ->
+                        send(Json.encodeToString(update as GameServerMessage))
+                    }
+                }
+
+                for (frame in incoming) {
+                    val message = parseMessage<GameClientMessage>(frame)
+                        ?: return@webSocket close(
+                            CloseReason(
+                                CloseReason.Codes.VIOLATED_POLICY,
+                                "Unexpected client message"
+                            )
+                        )
                 }
             }
         }
