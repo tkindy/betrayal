@@ -1,6 +1,9 @@
 import { createSlice } from '@reduxjs/toolkit';
 import * as api from '../api/api';
-import { receiveGameStateMessage } from './actions';
+import {
+  receiveCardStackContentsMessage,
+  receiveGameStateMessage,
+} from './actions';
 import { Card, Player } from './models';
 import { getGameId } from './selectors';
 import { createAppAsyncThunk } from './utils';
@@ -42,6 +45,7 @@ export const giveDrawnCardToPlayer = createAppAsyncThunk<
 
 interface CardStacksState {
   drawnCard: Card | null;
+  stackContents?: Card[];
 }
 
 const initialState: CardStacksState = {
@@ -80,6 +84,19 @@ const cardStacksSlice = createSlice({
           }
         ) => {
           state.drawnCard = drawnCard;
+        }
+      )
+      .addCase(
+        receiveCardStackContentsMessage,
+        (
+          state,
+          {
+            payload: {
+              message: { contents },
+            },
+          }
+        ) => {
+          state.stackContents = contents;
         }
       );
   },
