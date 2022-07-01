@@ -41,7 +41,7 @@ val gameRoutes: Routing.() -> Unit = {
             diceRollRoutes()
 
             webSocket {
-                val id = call.parameters["gameId"]!!
+                val gameId = call.parameters["gameId"]!!
 
                 val (name) = parseMessage<GameClientMessage>(incoming.receive())
                         as? NameMessage
@@ -53,7 +53,7 @@ val gameRoutes: Routing.() -> Unit = {
                     )
 
                 transaction {
-                    Players.select { (Players.gameId eq id) and (Players.name eq name) }
+                    Players.select { (Players.gameId eq gameId) and (Players.name eq name) }
                         .firstOrNull()
                 }
                     ?: return@webSocket close(
@@ -63,7 +63,7 @@ val gameRoutes: Routing.() -> Unit = {
                         )
                     )
 
-                gameUpdateManager.getUpdates(id).collect { update ->
+                gameUpdateManager.getUpdates(gameId).collect { update ->
                     send(Json.encodeToString(update as GameServerMessage))
                 }
             }
