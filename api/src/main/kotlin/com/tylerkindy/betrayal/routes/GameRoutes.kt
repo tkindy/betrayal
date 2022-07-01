@@ -1,9 +1,8 @@
 package com.tylerkindy.betrayal.routes
 
-import com.tylerkindy.betrayal.Game
+import com.tylerkindy.betrayal.*
 import com.tylerkindy.betrayal.db.Games
 import com.tylerkindy.betrayal.db.Players
-import com.tylerkindy.betrayal.gameUpdateManager
 import com.tylerkindy.betrayal.routes.GameClientMessage.NameMessage
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -65,7 +64,7 @@ val gameRoutes: Routing.() -> Unit = {
                     )
 
                 gameUpdateManager.getUpdates(id).collect { update ->
-                    send(Json.encodeToString(update))
+                    send(Json.encodeToString(update as GameServerMessage))
                 }
             }
         }
@@ -77,4 +76,18 @@ sealed class GameClientMessage {
     @Serializable
     @SerialName("name")
     data class NameMessage(val name: String) : GameClientMessage()
+}
+
+@Serializable
+sealed class GameServerMessage {
+    @Serializable
+    @SerialName("state")
+    data class GameUpdate(
+        val rooms: List<Room>,
+        val players: List<Player>,
+        val roomStack: RoomStackResponse,
+        val drawnCard: Card?,
+        val latestRoll: DiceRoll?,
+        val monsters: List<Monster>
+    ) : GameServerMessage()
 }

@@ -1,9 +1,9 @@
 package com.tylerkindy.betrayal
 
 import com.tylerkindy.betrayal.db.*
+import com.tylerkindy.betrayal.routes.GameServerMessage.GameUpdate
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.serialization.Serializable
 import java.util.concurrent.ConcurrentHashMap
 
 val gameUpdateManager = UpdateManager { gameId ->
@@ -16,16 +16,6 @@ val gameUpdateManager = UpdateManager { gameId ->
         monsters = getMonsters(gameId)
     )
 }
-
-@Serializable
-data class GameUpdate(
-    val rooms: List<Room>,
-    val players: List<Player>,
-    val roomStack: RoomStackResponse,
-    val drawnCard: Card?,
-    val latestRoll: DiceRoll?,
-    val monsters: List<Monster>
-)
 
 class UpdateManager<T>(private val buildUpdate: (String) -> T) {
     private val flows = ConcurrentHashMap<String, MutableSharedFlow<T>>()
