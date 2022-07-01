@@ -40,7 +40,12 @@ interface GameStateMessage {
   monsters: Monster[];
 }
 
-export type GameServerMessage = GameStateMessage;
+interface CardStackContentsMessage {
+  type: 'card-stack-contents';
+  contents: Card[];
+}
+
+export type GameServerMessage = GameStateMessage | CardStackContentsMessage;
 
 interface GameServerMessageMeta {
   name: string;
@@ -57,12 +62,19 @@ interface GameServerMessagePayload<T extends GameServerMessage>
 export const receiveGameStateMessage =
   createAction<GameServerMessagePayload<GameStateMessage>>('game/receiveState');
 
+export const receiveCardStackContentsMessage = createAction<
+  GameServerMessagePayload<CardStackContentsMessage>
+>('game/receiveCardStackContents');
+
 export const receiveGameMessage =
   ({ message, ...rest }: AnyGameServerMessagePayload): AppThunk =>
   (dispatch) => {
     switch (message.type) {
       case 'state':
         dispatch(receiveGameStateMessage({ message, ...rest }));
+        break;
+      case 'card-stack-contents':
+        dispatch(receiveCardStackContentsMessage({ message, ...rest }));
         break;
     }
   };
