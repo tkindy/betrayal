@@ -1,6 +1,5 @@
 import { GridLoc } from '../components/game/board/grid';
 import { Direction } from '../components/game/room/Room';
-import { RoomStackState } from './roomStack';
 
 export enum PlayerColor {
   WHITE = 'white',
@@ -128,20 +127,6 @@ export type Card = EventCard | ItemCard | OmenCard;
 export interface HeldCard {
   id: number;
   card: Card;
-}
-
-export interface GameUpdatePayload {
-  name: string;
-  update: GameUpdate;
-}
-
-export interface GameUpdate {
-  rooms: Room[];
-  players: Player[];
-  roomStack: RoomStackState;
-  drawnCard: Card | null;
-  latestRoll: DiceRoll | null;
-  monsters: Monster[];
 }
 
 export interface Monster {

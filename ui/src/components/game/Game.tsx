@@ -10,13 +10,16 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import DrawnCard from './cards/DrawnCard';
 import CharacterBar from './character/CharacterBar';
 import { useAppDispatch, useAppSelector } from '../../hooks';
-import { joinGame, receiveGameMessage } from '../../features/actions';
+import {
+  GameServerMessage,
+  joinGame,
+  receiveGameMessage,
+} from '../../features/actions';
 import { connectToWebSocket } from '../webSocket';
 import { AppDispatch } from '../../store';
 import { useSend } from '../hooks';
 import { isLobbyId } from '../lobby/Lobby';
 import { setName } from '../../features/lobby';
-import { GameUpdate } from '../../features/models';
 import { SendContext } from './SendContext';
 
 const buildWebsocketUrl = (gameId: string) => {
@@ -29,7 +32,7 @@ const connectToGame = (gameId: string, name: string, dispatch: AppDispatch) => {
   return connectToWebSocket(
     buildWebsocketUrl(gameId),
     dispatch,
-    (message: GameUpdate) => receiveGameMessage({ name, update: message }),
+    (message: GameServerMessage) => receiveGameMessage({ name, message }),
     (webSocket) => {
       webSocket.send(JSON.stringify({ type: 'name', name }));
     }

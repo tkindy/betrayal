@@ -3,7 +3,7 @@ import { createAppAsyncThunk } from './utils';
 import * as api from '../api/api';
 import { getGameId } from './selectors';
 import { DiceRoll, DiceRollType } from './models';
-import { receiveGameMessage } from './actions';
+import { receiveGameStateMessage } from './actions';
 
 interface RollDicePayload {
   numDice: number;
@@ -32,15 +32,25 @@ const diceRollsSlice = createSlice({
   initialState,
   reducers: {},
   extraReducers: (builder) => {
-    builder.addCase(receiveGameMessage, (state, { payload: { update } }) => {
-      const roll = update.latestRoll;
-      const lastRoll = state.roll;
-      state.roll = roll || undefined;
+    builder.addCase(
+      receiveGameStateMessage,
+      (
+        state,
+        {
+          payload: {
+            message: { latestRoll },
+          },
+        }
+      ) => {
+        const roll = latestRoll;
+        const lastRoll = state.roll;
+        state.roll = roll || undefined;
 
-      if (roll && isNewRoll(roll, lastRoll)) {
-        state.couldTriggerHaunt = roll.type === 'HAUNT';
+        if (roll && isNewRoll(roll, lastRoll)) {
+          state.couldTriggerHaunt = roll.type === 'HAUNT';
+        }
       }
-    });
+    );
   },
 });
 

@@ -1,7 +1,8 @@
 import { createAction } from '@reduxjs/toolkit';
 import { AppThunk } from '../store';
 import * as lobbyActions from './lobby';
-import { GameUpdatePayload } from './models';
+import { Card, DiceRoll, Monster, Player, Room } from './models';
+import { RoomStackState } from './roomStack';
 
 export const joinGame = createAction<{ gameId: string }>('game/join');
 
@@ -29,6 +30,39 @@ export const receiveLobbyMessage =
     }
   };
 
-export const receiveGameMessage = createAction<GameUpdatePayload>(
-  'game/receiveGameMessage'
-);
+interface GameStateMessage {
+  type: 'state';
+  rooms: Room[];
+  players: Player[];
+  roomStack: RoomStackState;
+  drawnCard: Card | null;
+  latestRoll: DiceRoll | null;
+  monsters: Monster[];
+}
+
+export type GameServerMessage = GameStateMessage;
+
+interface GameServerMessageMeta {
+  name: string;
+}
+
+interface AnyGameServerMessagePayload extends GameServerMessageMeta {
+  message: GameServerMessage;
+}
+
+interface GameServerMessagePayload<T extends GameServerMessage>
+  extends GameServerMessageMeta {
+  message: T;
+}
+export const receiveGameStateMessage =
+  createAction<GameServerMessagePayload<GameStateMessage>>('game/receiveState');
+
+export const receiveGameMessage =
+  ({ message, ...rest }: AnyGameServerMessagePayload): AppThunk =>
+  (dispatch) => {
+    switch (message.type) {
+      case 'state':
+        dispatch(receiveGameStateMessage({ message, ...rest }));
+        break;
+    }
+  };

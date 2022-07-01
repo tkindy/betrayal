@@ -7,7 +7,7 @@ import { equal, GridLoc } from '../components/game/board/grid';
 import { RootState } from '../store';
 import { get } from '../board';
 import { getMonsters as selectMonsters } from './selectors';
-import { receiveGameMessage } from './actions';
+import { receiveGameStateMessage } from './actions';
 
 export const addMonster = createAppAsyncThunk(
   'monsters/add',
@@ -67,9 +67,19 @@ const monstersSlice = createSlice({
           m.id === monster.id ? monster : m
         );
       })
-      .addCase(receiveGameMessage, (state, { payload: { update } }) => {
-        state.monsters = update.monsters;
-      });
+      .addCase(
+        receiveGameStateMessage,
+        (
+          state,
+          {
+            payload: {
+              message: { monsters },
+            },
+          }
+        ) => {
+          state.monsters = monsters;
+        }
+      );
   },
 });
 
