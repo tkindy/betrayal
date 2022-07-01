@@ -17,6 +17,7 @@ import { useSend } from '../hooks';
 import { isLobbyId } from '../lobby/Lobby';
 import { setName } from '../../features/lobby';
 import { GameUpdate } from '../../features/models';
+import { SendContext } from './SendContext';
 
 const buildWebsocketUrl = (gameId: string) => {
   const httpRoot = process.env.REACT_APP_API_ROOT!!;
@@ -90,22 +91,24 @@ const Game: FC<{}> = () => {
         {(reduxContext) => (
           <Stage width={width} height={height}>
             <ReactReduxContext.Provider value={reduxContext}>
-              <Layer
-                draggable
-                onDragEnd={(e) => {
-                  dispatch(
-                    moveBoard({
-                      x: -e.target.x(),
-                      y: -e.target.y(),
-                    })
-                  );
-                }}
-              >
-                <Rect x={x} y={y} width={width} height={height} />
-                <Board />
-                <Agents />
-                <Group name="overlay" />
-              </Layer>
+              <SendContext.Provider value={send}>
+                <Layer
+                  draggable
+                  onDragEnd={(e) => {
+                    dispatch(
+                      moveBoard({
+                        x: -e.target.x(),
+                        y: -e.target.y(),
+                      })
+                    );
+                  }}
+                >
+                  <Rect x={x} y={y} width={width} height={height} />
+                  <Board />
+                  <Agents />
+                  <Group name="overlay" />
+                </Layer>
+              </SendContext.Provider>
             </ReactReduxContext.Provider>
           </Stage>
         )}
