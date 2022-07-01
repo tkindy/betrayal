@@ -10,6 +10,10 @@ import kotlinx.serialization.encoding.Encoder
 import org.apache.commons.csv.CSVFormat
 import java.io.InputStreamReader
 
+interface CardDefinition<T : Card> {
+    fun toCard(): T
+}
+
 @Serializable
 sealed class RollTarget {
     @Serializable
@@ -108,8 +112,8 @@ data class EventDefinition(
     val flavorText: String?,
     val description: String,
     val rollTable: RollTable?
-) {
-    fun toCard(): Card.EventCard {
+) : CardDefinition<Card.EventCard> {
+    override fun toCard(): Card.EventCard {
         return Card.EventCard(
             name = name,
             condition = condition,
@@ -132,8 +136,8 @@ data class ItemDefinition(
     val flavorText: String?,
     val description: String,
     val rollTable: RollTable?
-) {
-    fun toCard(): Card.ItemCard {
+) : CardDefinition<Card.ItemCard> {
+    override fun toCard(): Card.ItemCard {
         return Card.ItemCard(
             name = name,
             subtype = subtype,
@@ -151,8 +155,8 @@ data class OmenDefinition(
     val flavorText: String?,
     val description: String,
     val rollTable: RollTable?
-) {
-    fun toCard(): Card.OmenCard {
+) : CardDefinition<Card.OmenCard> {
+    override fun toCard(): Card.OmenCard {
         return Card.OmenCard(
             name = name,
             subtype = subtype,

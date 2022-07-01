@@ -150,10 +150,12 @@ data class PlaceRoomResponse(
 
 @Serializable
 sealed class Card {
+    abstract val name: String
+
     @Serializable
     @SerialName("ITEM")
     data class ItemCard(
-        val name: String,
+        override val name: String,
         val subtype: Subtype?,
         val flavorText: String?,
         val description: String,
@@ -163,7 +165,7 @@ sealed class Card {
     @Serializable
     @SerialName("EVENT")
     data class EventCard(
-        val name: String,
+        override val name: String,
         val condition: String?,
         val flavorText: String?,
         val description: String,
@@ -173,7 +175,7 @@ sealed class Card {
     @Serializable
     @SerialName("OMEN")
     data class OmenCard(
-        val name: String,
+        override val name: String,
         val subtype: Subtype?,
         val flavorText: String?,
         val description: String,
