@@ -1,9 +1,13 @@
-import { FunctionComponent } from 'react';
+import { FunctionComponent, useContext } from 'react';
 import { drawEvent, drawItem, drawOmen } from '../../../features/cardStacks';
 import { useAppDispatch } from '../../../hooks';
+import { SendContext } from '../SendContext';
 import './DrawControl.css';
 
+type CardType = 'EVENT' | 'ITEM' | 'OMEN';
+
 interface DrawButtonProps {
+  cardType: CardType;
   entity: string;
   thunk: () => any;
 }
@@ -19,13 +23,25 @@ const DrawButton: FunctionComponent<DrawButtonProps> = ({ entity, thunk }) => {
 };
 
 const buttonProps: DrawButtonProps[] = [
-  { entity: 'event', thunk: drawEvent },
-  { entity: 'item', thunk: drawItem },
-  { entity: 'omen', thunk: drawOmen },
+  { cardType: 'EVENT', entity: 'event', thunk: drawEvent },
+  { cardType: 'ITEM', entity: 'item', thunk: drawItem },
+  { cardType: 'OMEN', entity: 'omen', thunk: drawOmen },
 ];
 
-const SearchStackButton: FunctionComponent<{}> = () => {
-  return <button style={{ margin: '5px 2px' }}>🔍</button>;
+const SearchStackButton: FunctionComponent<{
+  cardType: CardType;
+}> = ({ cardType }) => {
+  const send = useContext(SendContext)!;
+  return (
+    <button
+      style={{ margin: '5px 2px' }}
+      onClick={() => {
+        send({ type: 'search-card-stack', cardType });
+      }}
+    >
+      🔍
+    </button>
+  );
 };
 
 interface DrawControlProps {}
@@ -49,7 +65,7 @@ const DrawControl: FunctionComponent<DrawControlProps> = () => {
           }}
         >
           <DrawButton {...props} />
-          <SearchStackButton />
+          <SearchStackButton cardType={props.cardType} />
         </div>
       ))}
     </div>
