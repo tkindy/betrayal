@@ -89,7 +89,7 @@ val gameRoutes: Routing.() -> Unit = {
 
                     when (message) {
                         is SearchCardStack -> {
-                            searchCardStack(gameId, message.type)
+                            searchCardStack(gameId, message.cardType)
                         }
 
                         is NameMessage -> {
@@ -134,7 +134,7 @@ sealed class GameClientMessage {
 
     @Serializable
     @SerialName("search-card-stack")
-    data class SearchCardStack(val type: CardType) : GameClientMessage()
+    data class SearchCardStack(val cardType: CardType) : GameClientMessage()
 }
 
 @Serializable
