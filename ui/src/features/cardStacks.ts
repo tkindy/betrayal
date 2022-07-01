@@ -55,7 +55,11 @@ const initialState: CardStacksState = {
 const cardStacksSlice = createSlice({
   name: 'cardStacks',
   initialState,
-  reducers: {},
+  reducers: {
+    closeStackContents(state) {
+      delete state.stackContents;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(drawEvent.fulfilled, (state, { payload: card }) => {
@@ -102,4 +106,5 @@ const cardStacksSlice = createSlice({
   },
 });
 
+export const { closeStackContents } = cardStacksSlice.actions;
 export default cardStacksSlice.reducer;
