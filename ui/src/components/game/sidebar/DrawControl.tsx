@@ -1,8 +1,57 @@
-import { FunctionComponent, useContext } from 'react';
-import { drawEvent, drawItem, drawOmen } from '../../../features/cardStacks';
-import { useAppDispatch } from '../../../hooks';
+import { FunctionComponent, useContext, useState } from 'react';
+import {
+  closeStackContents,
+  drawEvent,
+  drawItem,
+  drawOmen,
+} from '../../../features/cardStacks';
+import { Card } from '../../../features/models';
+import { useAppDispatch, useAppSelector } from '../../../hooks';
 import { SendContext } from '../SendContext';
 import './DrawControl.css';
+
+const StackContents: FunctionComponent<{ contents: Card[] }> = ({
+  contents,
+}) => {
+  const dispatch = useAppDispatch();
+  const [search, setSearch] = useState('');
+  const filtered = contents.filter((card) =>
+    card.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="stack-contents">
+      <button
+        onClick={() => {
+          dispatch(closeStackContents());
+        }}
+      >
+        Close
+      </button>
+      <input
+        value={search}
+        onChange={(e) => {
+          setSearch(e.target.value);
+        }}
+      />
+      <ul
+        style={{
+          maxHeight: '100px',
+          overflowY: 'scroll',
+          backgroundColor: 'white',
+          listStyle: 'none',
+          padding: '0 10px',
+        }}
+      >
+        {filtered.map((card) => (
+          <li key={card.name + card.description} style={{ padding: '2px 0' }}>
+            {card.name}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
 
 type CardType = 'EVENT' | 'ITEM' | 'OMEN';
 
@@ -47,6 +96,13 @@ const SearchStackButton: FunctionComponent<{
 interface DrawControlProps {}
 
 const DrawControl: FunctionComponent<DrawControlProps> = () => {
+  const stackContents = useAppSelector(
+    (state) => state.cardStacks.stackContents
+  );
+  if (stackContents) {
+    return <StackContents contents={stackContents} />;
+  }
+
   return (
     <div
       style={{
