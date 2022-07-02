@@ -45,7 +45,7 @@ const StackContents: FunctionComponent<{ contents: Card[] }> = ({
       >
         {filtered.map((card) => (
           <li key={card.name + card.description} style={{ padding: '2px 0' }}>
-            {card.name}
+            <button>{card.name}</button>
           </li>
         ))}
       </ul>
