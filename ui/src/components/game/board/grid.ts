@@ -17,7 +17,7 @@ export const toString: (loc: GridLoc) => string = ({ gridX, gridY }) => {
 };
 
 export const useGridSize = () => {
-  return useAppSelector((state) => state.zoom.gridSize);
+  return useAppSelector((state) => state.board.gridSize);
 };
 
 export const useGridBox: (loc: GridLoc) => BoundingBox = ({ gridX, gridY }) => {

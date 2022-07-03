@@ -1,7 +1,6 @@
 import { AnyAction, configureStore, ThunkAction } from '@reduxjs/toolkit';
 import { combineReducers } from '@reduxjs/toolkit';
 import lobbyReducer from './features/lobby';
-import zoomReducer from './features/zoom';
 import roomStackReducer from './features/roomStack';
 import cardStacksReducer from './features/cardStacks';
 import boardReducer from './features/board';
@@ -13,7 +12,6 @@ import monstersReducer from './features/monsters';
 const rootReducer = combineReducers({
   lobby: lobbyReducer,
   game: gameReducer,
-  zoom: zoomReducer,
   roomStack: roomStackReducer,
   cardStacks: cardStacksReducer,
   board: boardReducer,

@@ -14,6 +14,10 @@ import { Direction } from '../components/game/room/Room';
 import { createAppAsyncThunk } from './utils';
 import { receiveGameMessage } from './actions';
 
+const minGridSize = 50;
+const maxGridSize = 300;
+const zoomStep = 50;
+
 export const moveRoom = createAppAsyncThunk(
   'board/moveRoom',
   async ({ id, loc }: { id: number; loc: GridLoc }, { getState }) => {
@@ -38,6 +42,7 @@ export const returnRoomToStack = createAppAsyncThunk(
 interface BoardState {
   topLeft: Point;
   rooms?: Room[];
+  gridSize: number;
 }
 
 const getMatchingDoor: (dir: Direction) => Direction = (dir) => {
@@ -99,6 +104,7 @@ export const flippedRoomDropped: (
 
 const initialState: BoardState = {
   topLeft: { x: 0, y: 0 },
+  gridSize: 200,
 };
 
 const boardSlice = createSlice({
@@ -107,6 +113,12 @@ const boardSlice = createSlice({
   reducers: {
     moveBoard(state, action: PayloadAction<Point>) {
       state.topLeft = action.payload;
+    },
+    zoomIn(state) {
+      state.gridSize = Math.min(maxGridSize, state.gridSize + zoomStep);
+    },
+    zoomOut(state) {
+      state.gridSize = Math.max(minGridSize, state.gridSize - zoomStep);
     },
   },
   extraReducers: (builder) => {
@@ -120,5 +132,5 @@ const boardSlice = createSlice({
   },
 });
 
-export const { moveBoard } = boardSlice.actions;
+export const { moveBoard, zoomIn, zoomOut } = boardSlice.actions;
 export default boardSlice.reducer;
