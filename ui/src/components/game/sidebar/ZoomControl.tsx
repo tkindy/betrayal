@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'react';
-import { zoomIn, zoomOut } from '../../../features/board';
+import { zoomIn, zoomOut } from '../../../features/view';
 import { useAppDispatch } from '../../../hooks';
 import './ZoomControl.css';
 

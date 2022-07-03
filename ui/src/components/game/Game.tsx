@@ -3,7 +3,7 @@ import { Layer, Rect, Stage, Group } from 'react-konva';
 import Board from './board/Board';
 import { ReactReduxContext } from 'react-redux';
 import { useWindowDimensions } from '../windowDimensions';
-import { moveBoard } from '../../features/board';
+import { moveBoard } from '../../features/view';
 import Agents from './players/Agents';
 import Sidebar from './sidebar/Sidebar';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -40,7 +40,7 @@ const Game: FC<{}> = () => {
   const { width, height } = useWindowDimensions();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { x, y } = useAppSelector((state) => state.board.topLeft);
+  const { x, y } = useAppSelector((state) => state.view.center);
   const [send, setSend] = useSend();
   const name = useAppSelector((state) => state.lobby.name);
   const [searchParams] = useSearchParams();

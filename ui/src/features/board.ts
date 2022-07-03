@@ -1,22 +1,12 @@
-import {
-  Action,
-  createSlice,
-  PayloadAction,
-  ThunkAction,
-} from '@reduxjs/toolkit';
+import { Action, createSlice, ThunkAction } from '@reduxjs/toolkit';
 import { equal, GridLoc } from '../components/game/board/grid';
 import { RootState } from '../store';
 import * as api from '../api/api';
 import { Room } from './models';
-import { Point } from '../components/geometry';
 import { getGameId, getOpenNeighbors } from './selectors';
 import { Direction } from '../components/game/room/Room';
 import { createAppAsyncThunk } from './utils';
 import { receiveGameMessage } from './actions';
-
-const minGridSize = 50;
-const maxGridSize = 300;
-const zoomStep = 50;
 
 export const moveRoom = createAppAsyncThunk(
   'board/moveRoom',
@@ -40,9 +30,7 @@ export const returnRoomToStack = createAppAsyncThunk(
 );
 
 interface BoardState {
-  topLeft: Point;
   rooms?: Room[];
-  gridSize: number;
 }
 
 const getMatchingDoor: (dir: Direction) => Direction = (dir) => {
@@ -102,25 +90,12 @@ export const flippedRoomDropped: (
     dispatch(openSpotClicked(relevantNeighbor.loc, relevantNeighbor.from));
   };
 
-const initialState: BoardState = {
-  topLeft: { x: 0, y: 0 },
-  gridSize: 200,
-};
+const initialState: BoardState = {};
 
 const boardSlice = createSlice({
   name: 'board',
   initialState,
-  reducers: {
-    moveBoard(state, action: PayloadAction<Point>) {
-      state.topLeft = action.payload;
-    },
-    zoomIn(state) {
-      state.gridSize = Math.min(maxGridSize, state.gridSize + zoomStep);
-    },
-    zoomOut(state) {
-      state.gridSize = Math.max(minGridSize, state.gridSize - zoomStep);
-    },
-  },
+  reducers: {},
   extraReducers: (builder) => {
     builder
       .addCase(placeRoom.fulfilled, (state, { payload: { rooms } }) => {
@@ -132,5 +107,4 @@ const boardSlice = createSlice({
   },
 });
 
-export const { moveBoard, zoomIn, zoomOut } = boardSlice.actions;
 export default boardSlice.reducer;
