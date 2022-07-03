@@ -4,6 +4,7 @@ import lobbyReducer from './features/lobby';
 import roomStackReducer from './features/roomStack';
 import cardStacksReducer from './features/cardStacks';
 import boardReducer from './features/board';
+import viewReducer from './features/view';
 import playersReducer from './features/players';
 import gameReducer from './features/game';
 import diceRollsReducer from './features/diceRolls';
@@ -15,6 +16,7 @@ const rootReducer = combineReducers({
   roomStack: roomStackReducer,
   cardStacks: cardStacksReducer,
   board: boardReducer,
+  view: viewReducer,
   players: playersReducer,
   diceRolls: diceRollsReducer,
   monsters: monstersReducer,
