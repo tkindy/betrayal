@@ -33,5 +33,8 @@
             tokens-layer (.indexOf html "class=\"tokens\"")]
         (is (<= 0 rooms-layer))
         (is (< rooms-layer tokens-layer))))
+    (testing "players and monsters share one centered row"
+      (is (re-find #"player draggable\"[^>]+translate\(74 137\)" html))
+      (is (re-find #"monster draggable\"[^>]+translate\(106 137\)" html)))
     (testing "Hiccup escapes database content"
       (is (re-find #"Player &lt;one&gt;" html)))))

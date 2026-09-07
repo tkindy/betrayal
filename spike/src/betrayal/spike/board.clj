@@ -96,22 +96,24 @@
 (defn- grouped [entities]
   (group-by (juxt :grid_x :grid_y) entities))
 
-(defn- player-token [player index total]
+(defn- token-x [index total]
   (let [spacing 32
-        start (- (/ (* (dec total) spacing) 2))
-        x (+ (/ cell-size 2) start (* index spacing))]
-    [:g {:class "token player draggable"
-         :data-kind "player" :data-id (:id player)
-         :data-grid-x (:grid_x player) :data-grid-y (:grid_y player)
-         :transform (format "translate(%s %d)" x 137)}
-     [:circle {:r 14 :fill (str/lower-case (:color player))}]
-     [:title (str (:name player) " — drag to another room")]]))
+        start (- (/ (* (dec total) spacing) 2))]
+    (+ (/ cell-size 2) start (* index spacing))))
 
-(defn- monster-token [index monster]
+(defn- player-token [player index total]
+  [:g {:class "token player draggable"
+       :data-kind "player" :data-id (:id player)
+       :data-grid-x (:grid_x player) :data-grid-y (:grid_y player)
+       :transform (format "translate(%s %d)" (token-x index total) 137)}
+   [:circle {:r 14 :fill (str/lower-case (:color player))}]
+   [:title (str (:name player) " — drag to another room")]])
+
+(defn- monster-token [monster index total]
   [:g {:class "token monster draggable"
        :data-kind "monster" :data-id (:id monster)
        :data-grid-x (:grid_x monster) :data-grid-y (:grid_y monster)
-       :transform (format "translate(%d %d)" (+ 20 (* index 28)) 20)}
+       :transform (format "translate(%s %d)" (token-x index total) 137)}
    [:rect {:x -13 :y -13 :width 26 :height 26 :rx 4}]
    [:text {:y 5} (:number monster)]
    [:title (str "Monster " (:number monster) " — drag to another room")]])
@@ -146,7 +148,9 @@
            (for [room-data (:rooms board)
                  :let [loc [(:grid_x room-data) (:grid_y room-data)]
                        room-players (get players loc)
-                       room-monsters (get monsters loc)]
+                       room-monsters (get monsters loc)
+                       player-count (count room-players)
+                       token-count (+ player-count (count room-monsters))]
                  :when (or (seq room-players) (seq room-monsters))]
              [:g {:class "agents"
                   :data-grid-x (:grid_x room-data)
@@ -156,6 +160,9 @@
                                      (* (:grid_y room-data) cell-size))}
               (map-indexed
                (fn [index player]
-                 (player-token player index (count room-players)))
+                 (player-token player index token-count))
                room-players)
-              (map-indexed monster-token room-monsters)])]]]])))))
+              (map-indexed
+               (fn [index monster]
+                 (monster-token monster (+ player-count index) token-count))
+               room-monsters)])]]]])))))
