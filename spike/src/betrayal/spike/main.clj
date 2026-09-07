@@ -1,20 +1,26 @@
 (ns betrayal.spike.main
   (:gen-class)
-  (:import [java.net InetAddress])
+  (:import [java.net InetAddress]
+           [java.security MessageDigest])
   (:require [betrayal.spike.board :as board]
             [betrayal.spike.db :as db]
             [betrayal.spike.ui :as ui]
             [clojure.data.json :as json]
-            [compojure.core :refer [GET defroutes]]
+            [compojure.core :refer [GET POST defroutes]]
             [compojure.route :as route]
             [hiccup2.core :as h]
             [hiccup.page :refer [html5]]
             [org.httpkit.server :refer [as-channel run-server send!]]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [ring.middleware.params :refer [wrap-params]]
+            [ring.middleware.session :refer [wrap-session]]
+            [ring.middleware.session.cookie :refer [cookie-store]]
             [ring.util.response :as response]))
 
 (defonce ^:private ds (delay (db/datasource)))
+
+(defn- production? []
+  (= "production" (System/getenv "ENVIRONMENT")))
 
 (defn- page [title & body]
   (str
@@ -27,7 +33,23 @@
      [:script {:src "/assets/board.js" :defer true}]]
     (into [:body] body))))
 
-(defn- index-page []
+(defn- local-request? [request]
+  (and
+   (not (production?))
+   (try
+     (some-> request :remote-addr InetAddress/getByName .isLoopbackAddress)
+     (catch Exception _
+       false))))
+
+(defn- player-link [request game-id player]
+  (if (local-request? request)
+    [:a {:href (str "/games/" game-id "?player-id=" (:id player))}
+     (:name player)]
+    [:form {:method "post" :action (str "/games/" game-id "/player")}
+     [:input {:type "hidden" :name "player-id" :value (:id player)}]
+     [:button {:type "submit"} (:name player)]]))
+
+(defn- index-page [request]
   (page
    "Betrayal board spike"
    [:main.index
@@ -40,16 +62,8 @@
         (if (seq players)
           [:ul
            (for [player players]
-             [:li
-              [:a {:href (str "/games/" id "?player-id=" (:id player))}
-               (:name player)]])]
+             [:li (player-link request id player)])]
           [:p [:i "No players"]])])]]))
-
-(defn- local-request? [request]
-  (try
-    (some-> request :remote-addr InetAddress/getByName .isLoopbackAddress)
-    (catch Exception _
-      false)))
 
 (defn- debug-player-id [request game-id]
   (when (local-request? request)
@@ -57,10 +71,21 @@
       (when (and player-id (db/player-in-game? @ds game-id player-id))
         player-id))))
 
+(defn- session-player-id [request game-id]
+  (let [player-id (get-in request [:session :player-ids game-id])]
+    (when (and player-id (db/player-in-game? @ds game-id player-id))
+      player-id)))
+
+(defn- request-player-id [request game-id]
+  (or (debug-player-id request game-id)
+      (session-player-id request game-id)))
+
 (defn- board-page [request game-id]
   (if-let [game (db/game @ds game-id)]
     (let [state (db/game-state @ds game-id)
-          player-id (debug-player-id request game-id)]
+          debug-player-id (debug-player-id request game-id)
+          player-id (or debug-player-id
+                        (session-player-id request game-id))]
       (page
        (str (:name game) " — board spike")
        [:header.game-header
@@ -69,7 +94,7 @@
         [:span "SVG + server-rendered fragments"]]
        [:main#board-viewport
         (cond-> {:data-game-id game-id}
-          player-id (assoc :data-debug-player-id player-id))
+          debug-player-id (assoc :data-debug-player-id debug-player-id))
         (h/raw (board/render-board state))
         (h/raw (ui/render-ui game-id state player-id nil))]))
     nil))
@@ -205,50 +230,69 @@
 
 (defonce ^:private clients (atom {}))
 
-(defn- send-state! [channel error regions]
+(defn- send-message! [channel message]
+  (send! channel (json/write-str message)))
+
+(defn- send-state! [channel message-type error regions command-id]
   (when-let [{:keys [game-id player-id]} (get @clients channel)]
-    (send! channel (render-fragments game-id player-id error regions))))
+    (send-message!
+     channel
+     (cond-> {:type message-type
+              :html (render-fragments game-id player-id error regions)}
+       command-id (assoc :id command-id)
+       error (assoc :message error)))))
 
 (defn- broadcast-state! [game-id regions]
   (let [state (db/game-state @ds game-id)]
     (doseq [[channel client] @clients
             :when (= game-id (:game-id client))]
       (send! channel
-             (render-fragments-from-state
-              game-id state (:player-id client) nil
-              (conj regions :error))))))
+             (json/write-str
+              {:type "update"
+               :html
+               (render-fragments-from-state
+                game-id state (:player-id client) nil
+                (conj regions :error))})))))
 
 (defn- receive-command! [channel message]
-  (try
-    (let [{:keys [command action] :as params}
-          (json/read-str message :key-fn keyword)
-          {:keys [game-id player-id]} (get @clients channel)]
-      (case command
-        "move"
-        (broadcast-state! game-id (run-move! game-id params))
+  (let [command-id (atom nil)]
+    (try
+      (let [{:keys [id command action] :as params}
+            (json/read-str message :key-fn keyword)
+            {:keys [game-id player-id]} (get @clients channel)]
+        (reset! command-id id)
+        (when-not (and (string? id) (<= 1 (count id) 100))
+          (throw (ex-info "Every command must have an ID" {})))
+        (let [regions
+              (case command
+                "move"
+                (run-move! game-id params)
 
-        "action"
-        (broadcast-state!
-         game-id (run-action! game-id player-id action params))
+                "action"
+                (run-action! game-id player-id action params)
 
-        (throw (ex-info "Unknown WebSocket command" {}))))
-    (catch Exception exception
-      (send-state! channel
-                   (or (ex-message exception)
-                       "That command could not be completed")
-                   #{:all}))))
+                (throw (ex-info "Unknown WebSocket command" {})))]
+          (broadcast-state! game-id regions)
+          (send-message! channel {:type "ack" :id id})))
+      (catch Exception exception
+        (send-state! channel
+                     "error"
+                     (or (ex-message exception)
+                         "That command could not be completed")
+                     #{:all}
+                     @command-id)))))
 
 (defn- game-websocket [request game-id]
   (if-not (db/game @ds game-id)
     (response/not-found "Game not found")
-    (let [player-id (debug-player-id request game-id)]
+    (let [player-id (request-player-id request game-id)]
       (as-channel
        request
        {:on-open
         (fn [channel]
           (swap! clients assoc channel {:game-id game-id
                                         :player-id player-id})
-          (send-state! channel nil #{:all}))
+          (send-state! channel "state" nil #{:all} nil))
         :on-receive
         (fn [channel message]
           (receive-command! channel message))
@@ -256,23 +300,55 @@
         (fn [channel _]
           (swap! clients dissoc channel))}))))
 
+(defn- select-player [request game-id]
+  (let [player-id (parse-int (get-in request [:params :player-id]) "Player ID")]
+    (if-not (db/player-in-game? @ds game-id player-id)
+      (-> (response/response "Player is not part of this game")
+          (response/status 422))
+      (-> (response/redirect (str "/games/" game-id))
+          (assoc :status 303)
+          (assoc :session
+                 (assoc-in (:session request)
+                           [:player-ids game-id]
+                           player-id))))))
+
 (defroutes routes
   (GET "/up" [] (response/response "OK"))
-  (GET "/" [] (-> (response/response (index-page))
-                  (response/content-type "text/html")))
+  (GET "/" request (-> (response/response (index-page request))
+                       (response/content-type "text/html")))
   (GET "/games/:game-id" [game-id :as request]
     (if-let [body (board-page request game-id)]
       (-> (response/response body) (response/content-type "text/html"))
       (response/not-found "Game not found")))
+  (POST "/games/:game-id/player" [game-id :as request]
+    (select-player request game-id))
   (GET "/games/:game-id/socket" [game-id :as request]
     (game-websocket request game-id))
   (route/resources "/assets" {:root "public"})
   (route/not-found "Not found"))
 
+(defn- session-key []
+  (let [secret
+        (or (System/getenv "SESSION_SECRET")
+            (when-not (production?)
+              "betrayal-local-session-secret"))]
+    (when-not secret
+      (throw (ex-info "SESSION_SECRET is required in production" {})))
+    (->> (.digest (MessageDigest/getInstance "SHA-256")
+                  (.getBytes secret "UTF-8"))
+         (take 16)
+         byte-array)))
+
 (def app
   (-> routes
       wrap-keyword-params
-      wrap-params))
+      wrap-params
+      (wrap-session
+       {:store (cookie-store {:key (session-key)})
+        :cookie-name "betrayal-session"
+        :cookie-attrs
+        (cond-> {:http-only true :same-site :lax}
+          (production?) (assoc :secure true))})))
 
 (defn -main [& _]
   (let [port (parse-long (or (System/getenv "PORT") "8081"))]

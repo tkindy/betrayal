@@ -25,5 +25,7 @@ env:
     DB_HOST: betrayal-db
     DB_NAME: betrayal
     DB_USER: betrayal
+    ENVIRONMENT: production
   secret:
     - DB_PASSWORD:POSTGRES_PASSWORD
+    - SESSION_SECRET

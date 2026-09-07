@@ -9,7 +9,7 @@
   let socket;
   let reconnectTimer;
   let viewedPlayerId;
-  const commandQueue = [];
+  const pendingCommands = new Map();
 
   const svg = () => viewport.querySelector("#board");
   const world = () => viewport.querySelector("#world");
@@ -28,23 +28,62 @@
     socket = new WebSocket(socketUrl);
     socket.addEventListener("open", () => {
       clearTimeout(reconnectTimer);
-      while (commandQueue.length) {
-        socket.send(JSON.stringify(commandQueue.shift()));
-      }
     });
     socket.addEventListener("message", (event) => {
-      swapGameFragments(event.data);
+      const message = JSON.parse(event.data);
+      if (message.html) swapGameFragments(message.html);
+      if (message.type === "ack" || message.type === "error") {
+        completeCommand(message.id);
+      }
     });
     socket.addEventListener("close", () => {
+      for (const commandId of pendingCommands.keys()) {
+        completeCommand(commandId);
+      }
+      showClientError(
+        "Connection lost. Unconfirmed commands were not retried; reconnecting…"
+      );
       reconnectTimer = setTimeout(connect, 1000);
     });
   }
 
-  function sendCommand(command) {
-    if (socket?.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify(command));
-    } else {
-      commandQueue.push(command);
+  function commandId() {
+    return (
+      globalThis.crypto?.randomUUID?.() ||
+      `${Date.now()}-${Math.random().toString(16).slice(2)}`
+    );
+  }
+
+  function showClientError(message) {
+    const error = viewport.querySelector("#action-error-region");
+    if (!error) return;
+    error.textContent = message;
+    error.hidden = false;
+  }
+
+  function completeCommand(id) {
+    const button = pendingCommands.get(id);
+    if (button) button.disabled = false;
+    pendingCommands.delete(id);
+  }
+
+  function sendCommand(command, button) {
+    if (socket?.readyState !== WebSocket.OPEN) {
+      if (button) button.disabled = false;
+      showClientError("Not connected. This action was not sent.");
+      return;
+    }
+
+    const id = commandId();
+    if (button) {
+      button.disabled = true;
+      pendingCommands.set(id, button);
+    }
+    try {
+      socket.send(JSON.stringify({ ...command, id }));
+    } catch (_error) {
+      completeCommand(id);
+      showClientError("This action could not be sent.");
     }
   }
 
@@ -326,11 +365,6 @@
     }
     if (boardChanged) applyView();
     syncCharacterPanel();
-    viewport
-      .querySelectorAll("form.game-action button:disabled")
-      .forEach((button) => {
-        button.disabled = false;
-      });
   }
 
   function syncCharacterPanel() {
@@ -384,12 +418,11 @@
     event.preventDefault();
     if (form.dataset.confirm && !window.confirm(form.dataset.confirm)) return;
     const button = event.submitter;
-    if (button) button.disabled = true;
     sendCommand({
       command: "action",
       action: form.dataset.action,
       ...Object.fromEntries(new FormData(form)),
-    });
+    }, button);
   }
 
   function placeRoom(event) {

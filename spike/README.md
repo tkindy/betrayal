@@ -36,12 +36,18 @@ The production container also accepts `DB_HOST`, `DB_NAME`, `DB_USER`, and
 `DB_PASSWORD` separately and runs the shared Liquibase migrations before
 starting.
 
-The games listing shows a link for each player in a game. On loopback requests,
-that link's `player-id` query parameter identifies who that tab is playing as
-and is carried into its WebSocket connection. This makes it possible to play as
-different people in ordinary tabs. The server ignores this development
-override on non-loopback requests and always verifies that the player belongs
-to the game.
+The games listing lets each browser choose which player it is playing as. In a
+deployed environment, that choice is stored in a signed and encrypted,
+HTTP-only session cookie. The cookie is used for page loads and WebSocket
+connections, survives server restarts, and cannot be changed into another
+player binding by the browser. The server always verifies that the selected
+player belongs to the game.
+
+When the app is not running in production, loopback requests instead receive
+links with a `player-id` query parameter. The parameter is carried into the
+WebSocket connection, making it possible to play as different people in
+ordinary local tabs. The override is disabled in production even when a reverse
+proxy makes the incoming connection appear local.
 
 The **Viewing** control in the bottom bar is independent of that identity. It
 can inspect any player's traits and inventory without changing who the tab is
@@ -65,6 +71,13 @@ playing as.
 - Flip, rotate, skip, and place rooms from the room stack.
 
 The browser sends drops and game-control commands over one WebSocket connection.
+Every command has a client-generated ID and receives a success or error
+acknowledgement with the same ID. The exact submitting control remains disabled
+until its acknowledgement arrives. If the connection is lost, uncertain
+commands are not replayed; controls are re-enabled and the browser reports that
+their outcome is unknown. Every new or reconnected socket receives a complete
+authoritative state snapshot.
+
 The server validates and persists each command, then broadcasts only the keyed
 board and UI regions affected by that command. Unrelated DOM—and therefore
 client-owned state such as an open inventory card, focus, or the viewed
@@ -86,6 +99,9 @@ clojure -M:test
 `Dockerfile.clojure` and `config/deploy.clojure.yml` define a separate
 `betrayal-clojure` service at `betrayal-beta.tylerkindy.com`, so it can run
 alongside the original `betrayal` service against the same PostgreSQL database.
+Production requires a stable `SESSION_SECRET`; the Kamal secrets file reads it
+from the `Betrayal config` 1Password item. Changing this value invalidates all
+existing Clojure app sessions.
 Deploy it with:
 
 ```sh
