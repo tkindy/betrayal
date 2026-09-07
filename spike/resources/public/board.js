@@ -280,8 +280,28 @@
       });
   }
 
+  function closeInventoryCards(except) {
+    viewport.querySelectorAll("details.inventory-card[open]").forEach((card) => {
+      if (card !== except) card.open = false;
+    });
+  }
+
+  function enforceSingleOpenCard(event) {
+    const card = event.target;
+    if (!card.matches("details.inventory-card") || !card.open) return;
+    closeInventoryCards(card);
+  }
+
+  function closeInventoryCard(event) {
+    const button = event.target.closest(".inventory-card-close");
+    if (!button) return;
+    event.preventDefault();
+    button.closest("details.inventory-card").open = false;
+  }
+
   function selectViewedPlayer(event) {
     if (!event.target.matches("#player-select")) return;
+    closeInventoryCards();
     viewedPlayerId = event.target.value;
     syncCharacterPanel();
   }
@@ -319,7 +339,9 @@
   viewport.addEventListener("pointerup", finishGesture);
   viewport.addEventListener("pointercancel", finishGesture);
   viewport.addEventListener("submit", submitGameAction);
+  viewport.addEventListener("toggle", enforceSingleOpenCard, true);
   viewport.addEventListener("change", selectViewedPlayer);
+  viewport.addEventListener("click", closeInventoryCard);
   viewport.addEventListener("click", placeRoom);
   viewport.addEventListener(
     "wheel",

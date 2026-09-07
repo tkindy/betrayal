@@ -527,6 +527,11 @@ a {
   width: min(32rem, calc(100vw - 18rem));
 }
 
+.inventory-card-close {
+  display: block;
+  margin: 0 0 0.4rem auto;
+}
+
 .card-copy h3 {
   font-family: Georgia, serif;
   font-size: 1.4rem;

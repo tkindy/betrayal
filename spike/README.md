@@ -43,7 +43,8 @@ playing as.
 - Drag a room to an unoccupied grid cell.
 - Drag a player or monster to another room.
 - Roll ordinary or haunt dice.
-- Draw, inspect, give, and discard cards.
+- Draw, inspect, give, and discard cards. One inventory card can be open at a
+  time; changing the viewed player closes it.
 - Take a drawn card directly for the tab's acting player.
 - Select a character and update their traits and inventory.
 - Add and move monsters.

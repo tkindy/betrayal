@@ -87,4 +87,6 @@
     (testing "inventory cards have stable identities"
       (is (re-find #"id=\"player-7-inventory\"" inventory-html))
       (is (re-find #"id=\"inventory-card-42\"" inventory-html))
+      (is (re-find #"name=\"inventory-card\"" inventory-html))
+      (is (re-find #"aria-label=\"Close card details\"" inventory-html))
       (is (not (re-find #"id=\"player-7-traits\"" inventory-html))))))

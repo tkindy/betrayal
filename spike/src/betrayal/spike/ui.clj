@@ -222,9 +222,13 @@
 (defn- inventory-card [game-id player-id players player card]
   [:details.inventory-card
    {:id (str "inventory-card-" (:id card))
+    :name "inventory-card"
     :class (name (:key card))}
    [:summary (:name card)]
    [:div.inventory-popover
+    [:button.inventory-card-close
+     {:type "button" :aria-label "Close card details"}
+     "Close"]
     (card-copy card)
     [:div.card-actions
      (action-form
