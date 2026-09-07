@@ -415,6 +415,10 @@ a {
   min-height: 0;
 }
 
+.character-content[hidden] {
+  display: none;
+}
+
 .traits {
   display: grid;
   gap: 0.35rem 0.7rem;
