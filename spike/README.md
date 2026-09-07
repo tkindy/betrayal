@@ -25,6 +25,12 @@ read the API's existing `rooms.csv` and `characters.csv` definitions without
 duplicating them. Alternatively, set `BETRAYAL_DEFINITIONS_DIR` to the directory
 containing those files.
 
+Use the **Playing as** control once to associate the current browser session
+with a player in that game. Player identity is stored per game in a server-side
+session and carried by an HTTP-only cookie; it is not accepted from game
+commands. The association lasts until the prototype process or browser session
+ends.
+
 ## Interactions
 
 - Drag empty board space to pan.
@@ -33,6 +39,7 @@ containing those files.
 - Drag a player or monster to another room.
 - Roll ordinary or haunt dice.
 - Draw, inspect, give, and discard cards.
+- Take a drawn card directly for the session's player.
 - Select a character and update their traits and inventory.
 - Add and move monsters.
 - Flip, rotate, skip, and place rooms from the room stack.

@@ -4,13 +4,14 @@
             [betrayal.spike.db :as db]
             [betrayal.spike.ui :as ui]
             [clojure.data.json :as json]
-            [compojure.core :refer [GET defroutes]]
+            [compojure.core :refer [GET POST defroutes]]
             [compojure.route :as route]
             [hiccup2.core :as h]
             [hiccup.page :refer [html5]]
             [org.httpkit.server :refer [as-channel run-server send!]]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [ring.middleware.params :refer [wrap-params]]
+            [ring.middleware.session :refer [wrap-session]]
             [ring.util.response :as response]))
 
 (defonce ^:private ds (delay (db/datasource)))
@@ -36,7 +37,12 @@
      (for [{:keys [id name]} (db/games @ds)]
        [:li [:a {:href (str "/games/" id)} name " (" id ")"]])]]))
 
-(defn- board-page [game-id]
+(defn- session-player-id [request game-id]
+  (let [player-id (get-in request [:session :player-ids game-id])]
+    (when (and player-id (db/player-in-game? @ds game-id player-id))
+      player-id)))
+
+(defn- board-page [request game-id]
   (if-let [game (db/game @ds game-id)]
     (let [state (db/game-state @ds game-id)]
       (page
@@ -47,28 +53,27 @@
         [:span "SVG + server-rendered fragments"]]
        [:main#board-viewport {:data-game-id game-id}
         (h/raw (board/render-board state))
-        (h/raw (ui/render-ui game-id state))]))
+        (h/raw (ui/render-ui game-id state
+                             (session-player-id request game-id)
+                             nil))]))
     nil))
 
 (defn- parse-int [value label]
   (or (some-> value parse-long)
       (throw (ex-info (str label " must be an integer") {}))))
 
-(defn- selected-player-id [params]
-  (some-> (:selected-player params) parse-long))
-
-(defn- render-fragments-from-state [game-id state selected error]
+(defn- render-fragments-from-state [game-id state player-id error]
   (str
    (h/html
     [:div#game-fragments
      (h/raw (board/render-board state))
-     (h/raw (ui/render-ui game-id state selected error))])))
+     (h/raw (ui/render-ui game-id state player-id error))])))
 
-(defn- render-fragments [game-id selected error]
+(defn- render-fragments [game-id player-id error]
   (render-fragments-from-state
-   game-id (db/game-state @ds game-id) selected error))
+   game-id (db/game-state @ds game-id) player-id error))
 
-(defn- run-action! [game-id action params]
+(defn- run-action! [game-id player-id action params]
   (case action
     "roll"
     (db/roll-dice! @ds game-id
@@ -94,6 +99,11 @@
     "give-drawn-card"
     (db/give-drawn-card! @ds game-id
                          (parse-int (:player-id params) "Player ID"))
+
+    "take-drawn-card"
+    (if player-id
+      (db/give-drawn-card! @ds game-id player-id)
+      (throw (ex-info "Choose which player you are before taking a card" {})))
 
     "discard-held-card"
     (db/discard-held-card! @ds game-id
@@ -137,8 +147,8 @@
 (defonce ^:private clients (atom {}))
 
 (defn- send-state! [channel error]
-  (when-let [{:keys [game-id selected-player]} (get @clients channel)]
-    (send! channel (render-fragments game-id selected-player error))))
+  (when-let [{:keys [game-id player-id]} (get @clients channel)]
+    (send! channel (render-fragments game-id player-id error))))
 
 (defn- broadcast-state! [game-id]
   (let [state (db/game-state @ds game-id)]
@@ -146,22 +156,14 @@
             :when (= game-id (:game-id client))]
       (send! channel
              (render-fragments-from-state
-              game-id state (:selected-player client) nil)))))
-
-(defn- remember-selected-player! [channel params]
-  (when-let [selected (selected-player-id params)]
-    (swap! clients assoc-in [channel :selected-player] selected)))
+              game-id state (:player-id client) nil)))))
 
 (defn- receive-command! [channel message]
   (try
     (let [{:keys [command action] :as params}
           (json/read-str message :key-fn keyword)
-          game-id (get-in @clients [channel :game-id])]
-      (remember-selected-player! channel params)
+          {:keys [game-id player-id]} (get @clients channel)]
       (case command
-        "select-player"
-        (send-state! channel nil)
-
         "move"
         (do
           (run-move! game-id params)
@@ -169,7 +171,7 @@
 
         "action"
         (do
-          (run-action! game-id action params)
+          (run-action! game-id player-id action params)
           (broadcast-state! game-id))
 
         (throw (ex-info "Unknown WebSocket command" {}))))
@@ -181,13 +183,13 @@
 (defn- game-websocket [request game-id]
   (if-not (db/game @ds game-id)
     (response/not-found "Game not found")
-    (let [initial-player (selected-player-id (:params request))]
+    (let [player-id (session-player-id request game-id)]
       (as-channel
        request
        {:on-open
         (fn [channel]
           (swap! clients assoc channel {:game-id game-id
-                                        :selected-player initial-player})
+                                        :player-id player-id})
           (send-state! channel nil))
         :on-receive
         (fn [channel message]
@@ -196,13 +198,27 @@
         (fn [channel _]
           (swap! clients dissoc channel))}))))
 
+(defn- select-player [request game-id]
+  (let [player-id (parse-int (get-in request [:params :player-id]) "Player ID")]
+    (if-not (db/player-in-game? @ds game-id player-id)
+      (-> (response/response "Player is not part of this game")
+          (response/status 422))
+      (-> (response/redirect (str "/games/" game-id))
+          (assoc :status 303)
+          (assoc :session
+                 (assoc-in (:session request)
+                           [:player-ids game-id]
+                           player-id))))))
+
 (defroutes routes
   (GET "/" [] (-> (response/response (index-page))
                   (response/content-type "text/html")))
-  (GET "/games/:game-id" [game-id]
-    (if-let [body (board-page game-id)]
+  (GET "/games/:game-id" [game-id :as request]
+    (if-let [body (board-page request game-id)]
       (-> (response/response body) (response/content-type "text/html"))
       (response/not-found "Game not found")))
+  (POST "/games/:game-id/player" [game-id :as request]
+    (select-player request game-id))
   (GET "/games/:game-id/socket" [game-id :as request]
     (game-websocket request game-id))
   (route/resources "/assets" {:root "public"})
@@ -211,7 +227,10 @@
 (def app
   (-> routes
       wrap-keyword-params
-      wrap-params))
+      wrap-params
+      (wrap-session {:cookie-name "betrayal-session"
+                     :cookie-attrs {:http-only true
+                                    :same-site :lax}})))
 
 (defn -main [& _]
   (let [port (parse-long (or (System/getenv "PORT") "8081"))]

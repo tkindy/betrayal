@@ -13,14 +13,11 @@
   const svg = () => viewport.querySelector("#board");
   const world = () => viewport.querySelector("#world");
   const roomDetails = () => viewport.querySelector("#room-details");
-  const selectedPlayer = () =>
-    viewport.querySelector("#game-ui")?.dataset.selectedPlayer || "";
 
   function connect() {
     const protocol = location.protocol === "https:" ? "wss:" : "ws:";
     socket = new WebSocket(
-      `${protocol}//${location.host}/games/${viewport.dataset.gameId}/socket` +
-        `?selected-player=${encodeURIComponent(selectedPlayer())}`
+      `${protocol}//${location.host}/games/${viewport.dataset.gameId}/socket`
     );
     socket.addEventListener("open", () => {
       clearTimeout(reconnectTimer);
@@ -220,7 +217,6 @@
       id,
       "grid-x": String(gridX),
       "grid-y": String(gridY),
-      "selected-player": selectedPlayer(),
     });
   }
 
@@ -250,21 +246,12 @@
     });
   }
 
-  function selectPlayer(event) {
-    if (!event.target.matches("#player-select")) return;
-    sendCommand({
-      command: "select-player",
-      "selected-player": event.target.value,
-    });
-  }
-
   function placeRoom(event) {
     const spot = event.target.closest(".open-spot");
     if (!spot) return;
     sendCommand({
       command: "action",
       action: "place-room",
-      "selected-player": selectedPlayer(),
       "grid-x": spot.dataset.gridX,
       "grid-y": spot.dataset.gridY,
     });
@@ -279,7 +266,6 @@
   viewport.addEventListener("pointerup", finishGesture);
   viewport.addEventListener("pointercancel", finishGesture);
   viewport.addEventListener("submit", submitGameAction);
-  viewport.addEventListener("change", selectPlayer);
   viewport.addEventListener("click", placeRoom);
   viewport.addEventListener(
     "wheel",

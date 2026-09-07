@@ -49,3 +49,15 @@
     (is (re-find #"class=\"room\"" html))
     (is (re-find #">Nursery<" html))
     (is (re-find #"class=\"door\"" html))))
+
+(deftest renders-session-player-actions
+  (let [drawn-state (assoc state :drawn-card
+                           {:id 10 :card_type_id 1 :card_def_id 0})
+        identified-html (ui/render-ui "ABC123" drawn-state 7 nil)
+        anonymous-html (ui/render-ui "ABC123" drawn-state nil nil)]
+    (testing "the session player can take a drawn card directly"
+      (is (re-find #"data-action=\"take-drawn-card\"" identified-html))
+      (is (re-find #">Take<" identified-html)))
+    (testing "an unidentified session must choose a player first"
+      (is (not (re-find #"data-action=\"take-drawn-card\"" anonymous-html)))
+      (is (re-find #"Choose a player" anonymous-html)))))

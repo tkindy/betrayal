@@ -60,20 +60,18 @@
                     type
                     drawn)))))
 
-(defn- action-form [game-id selected-player-id action attributes & children]
+(defn- action-form [_game-id _player-id action attributes & children]
   (into
    [:form.game-action
     (merge {:action "#"
             :data-action action}
-           attributes)
-    [:input {:type "hidden" :name "selected-player"
-             :value selected-player-id}]]
+           attributes)]
    children))
 
 (defn- render-die [value]
   [:span.die {:aria-label (str value)} (case value 0 "" 1 "●" 2 "● ●")])
 
-(defn- dice-panel [game-id selected-player-id {:keys [latest-roll inventories]}]
+(defn- dice-panel [game-id player-id {:keys [latest-roll inventories]}]
   (let [omen-count (count (filter #(= 2 (:card_type_id %)) inventories))
         values (:values latest-roll)
         total (reduce + 0 values)
@@ -81,13 +79,13 @@
     [:section.panel.dice-panel
      [:h2 "Dice"]
      (action-form
-      game-id selected-player-id "roll" {:class "game-action inline-form"}
+      game-id player-id "roll" {:class "game-action inline-form"}
       [:input {:type "number" :name "num-dice" :value 8 :min 1 :max 8
                :aria-label "Number of dice"}]
       [:input {:type "hidden" :name "roll-type" :value "AD_HOC"}]
       [:button {:type "submit"} "Roll"])
      (action-form
-      game-id selected-player-id "roll" {}
+      game-id player-id "roll" {}
       [:input {:type "hidden" :name "num-dice" :value 6}]
       [:input {:type "hidden" :name "roll-type" :value "HAUNT"}]
       [:button.wide {:type "submit"}
@@ -100,19 +98,19 @@
           [:span {:class (when (< total omen-count) "haunt")}
            (if (< total omen-count) "Haunt time!" "No haunt")])])]))
 
-(defn- draw-panel [game-id selected-player-id]
+(defn- draw-panel [game-id player-id]
   [:section.panel
    [:h2 "Cards"]
    [:div.button-stack
     (for [[type-id {:keys [label]}] card-types]
       (action-form
-       game-id selected-player-id "draw-card" {}
+       game-id player-id "draw-card" {}
        [:input {:type "hidden" :name "card-type" :value type-id}]
        [:button {:type "submit"} (str "Draw " (str/lower-case label))]))]])
 
-(defn- monster-panel [game-id selected-player-id]
+(defn- monster-panel [game-id player-id]
   [:section.panel
-   (action-form game-id selected-player-id "add-monster" {}
+   (action-form game-id player-id "add-monster" {}
                 [:button.wide {:type "submit"} "Add monster"])])
 
 (def floors
@@ -143,7 +141,7 @@
                    (when (some #{key} possible-floors) " available"))
        :x 29 :y top :width 122 :height 26}])])
 
-(defn- room-stack-panel [game-id selected-player-id room-stack]
+(defn- room-stack-panel [game-id player-id room-stack]
   (let [definition (get @board/room-definitions (:room_def_id room-stack))
         flipped? (:flipped room-stack)
         room-data (when definition
@@ -164,19 +162,19 @@
           :aria-label (str "Flipped room: " (:name definition))}
          (board/room-tile room-data)]
         [:p.room-placement-help "Choose a highlighted space on the board."]
-        (action-form game-id selected-player-id "rotate-room-stack" {}
+        (action-form game-id player-id "rotate-room-stack" {}
                      [:button.wide {:type "submit"} "Rotate"])]
 
        :else
        [:div
         (room-back (:floors definition))
         [:div.split-actions
-         (action-form game-id selected-player-id "flip-room-stack" {}
+         (action-form game-id player-id "flip-room-stack" {}
                       [:button {:type "submit"} "Use"])
-         (action-form game-id selected-player-id "advance-room-stack" {}
+         (action-form game-id player-id "advance-room-stack" {}
                       [:button {:type "submit"} "Next"])]])]))
 
-(defn- render-trait [game-id selected-player-id player
+(defn- render-trait [game-id player-id player
                      {:keys [key label index-key]}]
   (let [{:keys [values starting-index]} (get-in player [:traits key])
         current-index (get player index-key)]
@@ -185,7 +183,7 @@
      [:div.trait-values
       (for [[index value] (map-indexed vector values)]
         (action-form
-         game-id selected-player-id "set-trait"
+         game-id player-id "set-trait"
          {:class "game-action trait-form"}
          [:input {:type "hidden" :name "player-id" :value (:id player)}]
          [:input {:type "hidden" :name "trait" :value (name key)}]
@@ -221,19 +219,19 @@
     [:option {:value (:id player)}
      (str (:name player) " — " (:character-name player))]))
 
-(defn- inventory-card [game-id selected-player-id players player card]
+(defn- inventory-card [game-id player-id players player card]
   [:details.inventory-card {:class (name (:key card))}
    [:summary (:name card)]
    [:div.inventory-popover
     (card-copy card)
     [:div.card-actions
      (action-form
-      game-id selected-player-id "discard-held-card" {}
+      game-id player-id "discard-held-card" {}
       [:input {:type "hidden" :name "player-id" :value (:id player)}]
       [:input {:type "hidden" :name "card-id" :value (:id card)}]
       [:button.danger {:type "submit"} "Discard"])
      (action-form
-      game-id selected-player-id "give-held-card" {:class "game-action inline-form"}
+      game-id player-id "give-held-card" {:class "game-action inline-form"}
       [:input {:type "hidden" :name "player-id" :value (:id player)}]
       [:input {:type "hidden" :name "card-id" :value (:id card)}]
       [:select {:name "to-player-id" :aria-label "Give card to"}
@@ -241,29 +239,33 @@
        (player-options players (:id player))]
       [:button {:type "submit"} "Give"])]]])
 
-(defn- character-panel [game-id selected-player-id players]
-  (when-let [player (some #(when (= selected-player-id (:id %)) %) players)]
+(defn- character-panel [game-id player-id players]
+  (let [player (some #(when (= player-id (:id %)) %) players)]
     [:section#character-panel.panel
-     [:div.character-heading
-      [:label {:for "player-select"} "Character"]
-      [:select#player-select
+     [:form.character-heading
+      {:method "post" :action (str "/games/" game-id "/player")}
+      [:label {:for "player-select"} "Playing as"]
+      [:select#player-select {:name "player-id" :required true}
+       [:option {:value "" :selected (nil? player)} "Choose a player…"]
        (for [candidate players]
          [:option {:value (:id candidate)
-                   :selected (= (:id candidate) selected-player-id)}
-          (str (:name candidate) " — " (:character-name candidate))])]]
-     [:div.character-content
-      [:div.traits
-       (for [trait trait-names]
-         (render-trait game-id selected-player-id player trait))]
-      [:div.inventory
-       [:h2 "Inventory"]
-       (if (seq (:cards player))
-         [:div.inventory-cards
-          (for [card (:cards player)]
-            (inventory-card game-id selected-player-id players player card))]
-         [:i "Inventory empty"])]]]))
+                   :selected (= (:id candidate) player-id)}
+          (str (:name candidate) " — " (:character-name candidate))])]
+      [:button {:type "submit"} "Select"]]
+     (when player
+       [:div.character-content
+        [:div.traits
+         (for [trait trait-names]
+           (render-trait game-id player-id player trait))]
+        [:div.inventory
+         [:h2 "Inventory"]
+         (if (seq (:cards player))
+           [:div.inventory-cards
+            (for [card (:cards player)]
+              (inventory-card game-id player-id players player card))]
+           [:i "Inventory empty"])]])]))
 
-(defn- drawn-card-overlay [game-id selected-player-id players card]
+(defn- drawn-card-overlay [game-id player-id players card]
   (when card
     [:div#drawn-card-overlay
      [:section.drawn-card {:class (name (:key card))}
@@ -271,10 +273,13 @@
       (when (= :omen (:key card))
         [:strong "Make a haunt roll now."])
       [:div.card-actions
-       (action-form game-id selected-player-id "discard-drawn-card" {}
+       (when player-id
+         (action-form game-id player-id "take-drawn-card" {}
+                      [:button {:type "submit"} "Take"]))
+       (action-form game-id player-id "discard-drawn-card" {}
                     [:button.danger {:type "submit"} "Discard"])
        (action-form
-        game-id selected-player-id "give-drawn-card" {:class "game-action inline-form"}
+        game-id player-id "give-drawn-card" {:class "game-action inline-form"}
         [:select {:name "player-id" :aria-label "Give card to"}
          [:option {:value ""} "Give to…"]
          (player-options players nil)]
@@ -282,17 +287,17 @@
 
 (defn render-ui
   ([game-id state] (render-ui game-id state nil nil))
-  ([game-id state selected-player-id error]
+  ([game-id state player-id error]
    (let [{:keys [players drawn-card] :as state} (prepare-state state)
-         selected-player-id (or selected-player-id (:id (first players)))]
+         player-id (when (some #(= player-id (:id %)) players) player-id)]
      (str
       (h/html
-       [:div#game-ui {:data-selected-player selected-player-id}
+       [:div#game-ui {:data-player-id player-id}
         (when error [:div.action-error error])
         [:aside#game-sidebar
-         (dice-panel game-id selected-player-id state)
-         (draw-panel game-id selected-player-id)
-         (monster-panel game-id selected-player-id)
-         (room-stack-panel game-id selected-player-id (:room-stack state))]
-        (character-panel game-id selected-player-id players)
-        (drawn-card-overlay game-id selected-player-id players drawn-card)])))))
+         (dice-panel game-id player-id state)
+         (draw-panel game-id player-id)
+         (monster-panel game-id player-id)
+         (room-stack-panel game-id player-id (:room-stack state))]
+        (character-panel game-id player-id players)
+        (drawn-card-overlay game-id player-id players drawn-card)])))))

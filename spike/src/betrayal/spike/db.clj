@@ -23,6 +23,14 @@
                      ["select id, name from games where id = ?" game-id]
                      options))
 
+(defn player-in-game? [ds game-id player-id]
+  (some?
+   (jdbc/execute-one!
+    ds
+    ["select id from players where \"gameId\" = ? and id = ?"
+     game-id player-id]
+    options)))
+
 (defn board [connectable game-id]
   {:rooms
    (jdbc/execute!
