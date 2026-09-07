@@ -415,6 +415,10 @@ a {
   gap: 0.4rem;
 }
 
+.button-stack .monster-action {
+  margin-top: 0.4rem;
+}
+
 .zoom-actions {
   display: grid;
   gap: 0.4rem;
@@ -509,6 +513,10 @@ a {
   justify-content: center;
   letter-spacing: 0.15rem;
   width: 2rem;
+}
+
+.placeholder {
+  visibility: hidden;
 }
 
 .haunt {

@@ -75,15 +75,19 @@
      children)))
 
 (defn- render-die [value]
-  [:span.die {:aria-label (str value)} (case value 0 "" 1 "●" 2 "● ●")])
+  [:span
+   (cond-> {:class "die"}
+     (some? value) (assoc :aria-label (str value))
+     (nil? value) (assoc :class "die placeholder" :aria-hidden true))
+   (case value 0 "" 1 "●" 2 "● ●" nil "")])
 
 (defn- dice-panel [game-id player-id {:keys [latest-roll inventories]}]
   (let [omen-count (count (filter #(= 2 (:card_type_id %)) inventories))
         values (:values latest-roll)
+        dice-slots (take 8 (concat values (repeat nil)))
         total (reduce + 0 values)
         haunt? (= "HAUNT" (:type latest-roll))]
-    [:section#dice-panel.panel.dice-panel
-     [:h2 "Dice"]
+    [:section#dice-panel.panel.dice-panel {:aria-label "Dice"}
      (action-form
       game-id player-id "roll" {:class "game-action inline-form"}
       [:input {:type "number" :name "num-dice" :value 8 :min 1 :max 8
@@ -96,28 +100,26 @@
       [:input {:type "hidden" :name "roll-type" :value "HAUNT"}]
       [:button.wide {:type "submit"}
        (str "Haunt roll (" omen-count " omen" (when (not= omen-count 1) "s") ")")])
-     (when (seq values)
-       [:div.dice-result
-        [:div.dice-row (map render-die values)]
-        [:strong (str "Total: " total)]
-        (when haunt?
-          [:span {:class (when (< total omen-count) "haunt")}
-           (if (< total omen-count) "Haunt time!" "No haunt")])])]))
+     [:div.dice-result
+      [:div.dice-row (map render-die dice-slots)]
+      [:strong {:class (when-not (seq values) "placeholder")}
+       (str "Total: " total)]
+      [:span
+       {:class (str (when (< total omen-count) "haunt ")
+                    (when-not haunt? "placeholder"))
+        :aria-hidden (when-not haunt? true)}
+       (if (< total omen-count) "Haunt time!" "No haunt")]]]))
 
 (defn- draw-panel [game-id player-id]
-  [:section#draw-panel.panel
-   [:h2 "Cards"]
+  [:section#draw-panel.panel {:aria-label "Cards and monsters"}
    [:div.button-stack
     (for [[type-id {:keys [label]}] card-types]
       (action-form
        game-id player-id "draw-card" {}
        [:input {:type "hidden" :name "card-type" :value type-id}]
-       [:button {:type "submit"} (str "Draw " (str/lower-case label))]))]])
-
-(defn- monster-panel [game-id player-id]
-  [:section#monster-panel.panel
-   (action-form game-id player-id "add-monster" {}
-                [:button.wide {:type "submit"} "Add monster"])])
+       [:button {:type "submit"} (str "Draw " (str/lower-case label))]))
+    (action-form game-id player-id "add-monster" {:class "game-action monster-action"}
+                 [:button.wide {:type "submit"} "Add monster"])]])
 
 (defn- zoom-panel []
   [:section#zoom-panel.panel
@@ -165,8 +167,7 @@
                            :doors (board/rotate-doors
                                    (:doors definition)
                                    (or (:rotation room-stack) 0))))]
-    [:section#room-stack-panel.panel.room-stack-panel
-     [:h2 "Room stack"]
+    [:section#room-stack-panel.panel.room-stack-panel {:aria-label "Room stack"}
      (cond
        (nil? (:cur_index room-stack))
        [:i "Room stack empty"]
@@ -366,7 +367,6 @@
         [:aside#game-sidebar
          (dice-panel game-id player-id state)
          (draw-panel game-id player-id)
-         (monster-panel game-id player-id)
          (room-stack-panel game-id player-id (:room-stack state))]
         (character-panel game-id player-id players)
         (drawn-card-overlay game-id player-id players drawn-card)])))))
