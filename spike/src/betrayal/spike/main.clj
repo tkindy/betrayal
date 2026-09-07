@@ -1,5 +1,6 @@
 (ns betrayal.spike.main
   (:gen-class)
+  (:import [java.net InetAddress])
   (:require [betrayal.spike.board :as board]
             [betrayal.spike.db :as db]
             [betrayal.spike.ui :as ui]
@@ -42,20 +43,39 @@
     (when (and player-id (db/player-in-game? @ds game-id player-id))
       player-id)))
 
+(defn- local-request? [request]
+  (try
+    (some-> request :remote-addr InetAddress/getByName .isLoopbackAddress)
+    (catch Exception _
+      false)))
+
+(defn- debug-player-id [request game-id]
+  (when (local-request? request)
+    (let [player-id (some-> (get-in request [:params :player-id]) parse-long)]
+      (when (and player-id (db/player-in-game? @ds game-id player-id))
+        player-id))))
+
+(defn- request-player-id [request game-id]
+  (or (debug-player-id request game-id)
+      (session-player-id request game-id)))
+
 (defn- board-page [request game-id]
   (if-let [game (db/game @ds game-id)]
-    (let [state (db/game-state @ds game-id)]
+    (let [state (db/game-state @ds game-id)
+          debug-player-id (debug-player-id request game-id)
+          player-id (or debug-player-id
+                        (session-player-id request game-id))]
       (page
        (str (:name game) " — board spike")
        [:header.game-header
         [:a {:href "/"} "‹ Games"]
         [:strong (:name game)]
         [:span "SVG + server-rendered fragments"]]
-       [:main#board-viewport {:data-game-id game-id}
+       [:main#board-viewport
+        (cond-> {:data-game-id game-id}
+          debug-player-id (assoc :data-debug-player-id debug-player-id))
         (h/raw (board/render-board state))
-        (h/raw (ui/render-ui game-id state
-                             (session-player-id request game-id)
-                             nil))]))
+        (h/raw (ui/render-ui game-id state player-id nil))]))
     nil))
 
 (defn- parse-int [value label]
@@ -183,7 +203,7 @@
 (defn- game-websocket [request game-id]
   (if-not (db/game @ds game-id)
     (response/not-found "Game not found")
-    (let [player-id (session-player-id request game-id)]
+    (let [player-id (request-player-id request game-id)]
       (as-channel
        request
        {:on-open

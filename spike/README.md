@@ -31,6 +31,13 @@ session and carried by an HTTP-only cookie; it is not accepted from game
 commands. The association lasts until the prototype process or browser session
 ends.
 
+For local multiplayer testing, append `?player-id=<id>` to a game URL. A
+loopback request can use this tab-local override instead of the shared browser
+session, and the page carries it into that tab's WebSocket connection. For
+example, `/games/ABC123?player-id=7` and `/games/ABC123?player-id=8` can be open
+in ordinary tabs at the same time. The server ignores this override on
+non-loopback requests and always verifies that the player belongs to the game.
+
 ## Interactions
 
 - Drag empty board space to pan.

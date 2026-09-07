@@ -16,9 +16,13 @@
 
   function connect() {
     const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-    socket = new WebSocket(
+    const socketUrl = new URL(
       `${protocol}//${location.host}/games/${viewport.dataset.gameId}/socket`
     );
+    if (viewport.dataset.debugPlayerId) {
+      socketUrl.searchParams.set("player-id", viewport.dataset.debugPlayerId);
+    }
+    socket = new WebSocket(socketUrl);
     socket.addEventListener("open", () => {
       clearTimeout(reconnectTimer);
       while (commandQueue.length) {
