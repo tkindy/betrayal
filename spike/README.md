@@ -1,8 +1,8 @@
 # Clojure board spike
 
-This prototype tests the riskiest part of replacing the React/Konva UI:
-server-rendering an existing game's board as SVG while keeping pan, zoom, and
-drag interactions in a small browser-side module.
+This prototype tests replacing the React/Konva UI with a server-rendered game
+screen. The board is rendered as SVG, while pan, zoom, dragging, fragment swaps,
+and other DOM interactions live in a small browser-side module.
 
 It reads and updates the existing Betrayal PostgreSQL schema. It does not run
 migrations or create games, so point it at a database already used by the
@@ -31,16 +31,21 @@ containing those files.
 - Scroll or use a trackpad to zoom around the pointer.
 - Drag a room to an unoccupied grid cell.
 - Drag a player or monster to another room.
+- Roll ordinary or haunt dice.
+- Draw, inspect, give, and discard cards.
+- Select a character and update their traits and inventory.
+- Add and move monsters.
+- Flip, rotate, skip, and place rooms from the room stack.
 
 Drops are posted to the Clojure server. The server validates and persists the
 move, renders a new `#board-state` fragment, and the browser swaps that fragment
 without resetting its local viewport. Invalid drops return an error in the
 same authoritative fragment.
 
-This intentionally does not implement the sidebar, room drawing/placement, or
-real-time multiplayer updates. Its purpose is to decide whether server-rendered
-SVG plus focused JavaScript is a good foundation before migrating the rest of
-the application.
+Game controls are rendered as overlays so the board viewport remains stable
+when server fragments update. Real-time multiplayer broadcasts are intentionally
+left out; the prototype focuses on the rendering and interaction boundary before
+adding the WebSocket transport.
 
 ## Test
 

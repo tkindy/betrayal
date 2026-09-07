@@ -100,6 +100,7 @@
 
   function beginGesture(event) {
     if (event.button !== 0) return;
+    if (event.target.closest("#game-ui, .open-spot")) return;
     hideRoomDetails();
     const piece = event.target.closest(".draggable");
     if (piece) {
@@ -208,6 +209,63 @@
     }
   }
 
+  function swapGameFragments(html) {
+    const document = new DOMParser().parseFromString(html, "text/html");
+    const nextBoard = document.querySelector("#board-state");
+    const nextUi = document.querySelector("#game-ui");
+    if (nextBoard) {
+      viewport.querySelector("#board-state").replaceWith(nextBoard);
+      applyView();
+    }
+    if (nextUi) {
+      viewport.querySelector("#game-ui").replaceWith(nextUi);
+    }
+  }
+
+  async function submitGameAction(event) {
+    const form = event.target.closest("form.game-action");
+    if (!form) return;
+    event.preventDefault();
+    const button = event.submitter;
+    if (button) button.disabled = true;
+    try {
+      const response = await fetch(form.action, {
+        method: "POST",
+        body: new URLSearchParams(new FormData(form)),
+      });
+      swapGameFragments(await response.text());
+    } finally {
+      if (button?.isConnected) button.disabled = false;
+    }
+  }
+
+  async function selectPlayer(event) {
+    if (!event.target.matches("#player-select")) return;
+    const { gameId } = viewport.dataset;
+    const response = await fetch(
+      `/games/${gameId}/fragments?selected-player=${event.target.value}`
+    );
+    swapGameFragments(await response.text());
+  }
+
+  async function placeRoom(event) {
+    const spot = event.target.closest(".open-spot");
+    if (!spot) return;
+    const { gameId } = viewport.dataset;
+    const selectedPlayer =
+      viewport.querySelector("#game-ui")?.dataset.selectedPlayer || "";
+    const body = new URLSearchParams({
+      "selected-player": selectedPlayer,
+      "grid-x": spot.dataset.gridX,
+      "grid-y": spot.dataset.gridY,
+    });
+    const response = await fetch(`/games/${gameId}/actions/place-room`, {
+      method: "POST",
+      body,
+    });
+    swapGameFragments(await response.text());
+  }
+
   viewport.addEventListener("pointerdown", beginGesture);
   viewport.addEventListener("pointermove", (event) => {
     updateGesture(event);
@@ -216,9 +274,13 @@
   viewport.addEventListener("pointerleave", hideRoomDetails);
   viewport.addEventListener("pointerup", finishGesture);
   viewport.addEventListener("pointercancel", finishGesture);
+  viewport.addEventListener("submit", submitGameAction);
+  viewport.addEventListener("change", selectPlayer);
+  viewport.addEventListener("click", placeRoom);
   viewport.addEventListener(
     "wheel",
     (event) => {
+      if (event.target.closest("#game-ui")) return;
       event.preventDefault();
       const before = clientToWorld(event.clientX, event.clientY);
       const factor = Math.exp(-event.deltaY * 0.001);

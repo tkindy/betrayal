@@ -2,11 +2,20 @@
   (:require [betrayal.spike.board :as board]
             [clojure.test :refer [deftest is testing]]))
 
-(deftest rotates-doors-clockwise
+(deftest rotates-doors
   (is (= [\N \E \S \W] (board/rotate-doors "NESW" 0)))
-  (is (= [\E \S \W \N] (board/rotate-doors "NESW" 1)))
-  (is (= [\W] (board/rotate-doors "N" 3)))
-  (is (= [\E] (board/rotate-doors "N" 5))))
+  (is (= [\W \N \E \S] (board/rotate-doors "NESW" 1)))
+  (is (= [\E] (board/rotate-doors "N" 3)))
+  (is (= [\W] (board/rotate-doors "N" 5))))
+
+(deftest finds-valid-open-spots
+  (let [state {:rooms [{:grid_x 0 :grid_y 0 :doors "N"}]
+               :room-stack {:flipped true :doors "S"}}]
+    (is (= [[0 -1]] (board/open-spots state)))
+    (is (empty? (board/open-spots
+                 (assoc-in state [:room-stack :doors] "N"))))
+    (is (empty? (board/open-spots
+                 (assoc-in state [:room-stack :flipped] false))))))
 
 (deftest calculates-board-bounds
   (is (= {:min-x -8 :max-x 10 :min-y -8 :max-y 12}

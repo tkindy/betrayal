@@ -19,7 +19,7 @@
              "; run from spike/ or set BETRAYAL_DEFINITIONS_DIR")
         {}))))
 
-(defn- read-definitions [resource-name]
+(defn read-definitions [resource-name]
   (with-open [reader (io/reader (definition-source resource-name))]
     (let [[headers & rows] (csv/read-csv reader)
           keys (mapv (comp keyword str/lower-case
@@ -35,29 +35,64 @@
   (delay (into {} (map (juxt (comp parse-long :id) identity)
                        (read-definitions "characters.csv")))))
 
-(def ^:private clockwise {\N \E, \E \S, \S \W, \W \N})
+(def ^:private rotated {\E \N, \N \W, \W \S, \S \E})
 
 (defn rotate-doors [doors rotation]
   (map (fn [door]
-         (nth (iterate clockwise door) (mod rotation 4)))
+         (nth (iterate rotated door) (mod rotation 4)))
        doors))
 
 (defn enrich-board [{:keys [rooms players] :as board}]
-  (assoc board
-         :rooms
-         (mapv (fn [room]
-                 (let [definition (get @room-definitions (:room_def_id room))]
-                   (merge definition room
-                          {:doors (rotate-doors (:doors definition)
-                                                (:rotation room))})))
-               rooms)
-         :players
-         (mapv (fn [player]
-                 (merge player
-                        (select-keys
-                         (get @character-definitions (:character_id player))
-                         [:color])))
-               players)))
+  (let [room-stack (:room-stack board)]
+    (assoc board
+           :rooms
+           (mapv (fn [room]
+                   (let [definition (get @room-definitions (:room_def_id room))]
+                     (merge definition room
+                            {:doors (rotate-doors (:doors definition)
+                                                  (:rotation room))})))
+                 rooms)
+           :players
+           (mapv (fn [player]
+                   (merge player
+                          (select-keys
+                           (get @character-definitions (:character_id player))
+                           [:color])))
+                 players)
+           :room-stack
+           (when room-stack
+             (if-let [definition (get @room-definitions
+                                      (:room_def_id room-stack))]
+               (merge definition room-stack
+                      {:doors (rotate-doors (:doors definition)
+                                            (or (:rotation room-stack) 0))})
+               room-stack)))))
+
+(def ^:private direction-deltas
+  {\N [0 -1], \E [1 0], \S [0 1], \W [-1 0]})
+
+(def ^:private opposite
+  {\N \S, \S \N, \E \W, \W \E})
+
+(defn open-spots [{:keys [rooms room-stack]}]
+  (if-not (:flipped room-stack)
+    []
+    (let [occupied (set (map (juxt :grid_x :grid_y) rooms))
+          candidates
+          (for [{:keys [grid_x grid_y doors]} rooms
+                direction doors
+                :let [[dx dy] (direction-deltas direction)
+                      location [(+ grid_x dx) (+ grid_y dy)]]
+                :when (not (occupied location))]
+            {:location location :from direction})]
+      (->> candidates
+           (group-by :location)
+           (keep (fn [[location neighbors]]
+                   (when (some #(some #{(opposite (:from %))}
+                                      (:doors room-stack))
+                               neighbors)
+                     location)))
+           sort))))
 
 (defn bounds [{:keys [rooms]}]
   (if (seq rooms)
@@ -133,6 +168,14 @@
         [:svg#board {:aria-label "Betrayal game board"}
          [:g#world
           [:g.rooms
+           (for [[grid-x grid-y] (open-spots board)]
+             [:g.open-spot
+              {:data-grid-x grid-x
+               :data-grid-y grid-y
+               :transform (format "translate(%d %d)"
+                                  (* grid-x cell-size) (* grid-y cell-size))}
+              [:rect {:width cell-size :height cell-size :rx 8}]
+              [:text {:x (/ cell-size 2) :y (/ cell-size 2)} "Place room"]])
            (for [room-data (:rooms board)]
              [:g {:class "room-cell draggable"
                   :aria-label (:name room-data)
