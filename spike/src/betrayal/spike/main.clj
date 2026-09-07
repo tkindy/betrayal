@@ -115,6 +115,18 @@
       (db/add-monster! @ds game-id)
       #{:board})
 
+    "rotate-room"
+    (do
+      (db/rotate-room! @ds game-id
+                       (parse-int (:room-id params) "Room ID"))
+      #{:board})
+
+    "return-room"
+    (do
+      (db/return-room! @ds game-id
+                       (parse-int (:room-id params) "Room ID"))
+      #{:board :room-stack})
+
     "draw-card"
     (do
       (db/draw-card! @ds game-id
@@ -245,6 +257,7 @@
           (swap! clients dissoc channel))}))))
 
 (defroutes routes
+  (GET "/up" [] (response/response "OK"))
   (GET "/" [] (-> (response/response (index-page))
                   (response/content-type "text/html")))
   (GET "/games/:game-id" [game-id :as request]

@@ -1,0 +1,29 @@
+service: betrayal-clojure
+image: tkindy/betrayal-clojure
+
+servers:
+  web:
+    - 69.164.220.122
+
+proxy:
+  ssl: true
+  host: <%= ENV.fetch("BETRAYAL_CLOJURE_HOST") %>
+  healthcheck:
+    path: /up
+
+registry:
+  username: tkindy
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+builder:
+  arch: amd64
+  dockerfile: Dockerfile.clojure
+
+env:
+  clear:
+    DB_HOST: betrayal-db
+    DB_NAME: betrayal
+    DB_USER: betrayal
+  secret:
+    - DB_PASSWORD:POSTGRES_PASSWORD

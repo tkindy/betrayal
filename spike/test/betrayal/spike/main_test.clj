@@ -67,3 +67,27 @@
              (#'main/run-action!
               "GAME" 8 "set-trait"
               {:player-id "7" :trait "speed" :index "3"}))))))
+
+(deftest room-menu-actions-update-the-board
+  (with-redefs-fn
+    {#'main/ds (delay :test-datasource)
+     #'db/rotate-room! (fn [datasource game-id room-id]
+                         (is (= [:test-datasource "GAME" 12]
+                                [datasource game-id room-id])))
+     #'db/return-room! (fn [datasource game-id room-id]
+                         (is (= [:test-datasource "GAME" 12]
+                                [datasource game-id room-id])))}
+    (fn []
+      (is (= #{:board}
+             (#'main/run-action!
+              "GAME" 7 "rotate-room" {:room-id "12"})))
+      (is (= #{:board :room-stack}
+             (#'main/run-action!
+              "GAME" 7 "return-room" {:room-id "12"}))))))
+
+(deftest health-check-does-not-require-the-database
+  (let [response (main/app {:request-method :get
+                            :uri "/up"
+                            :headers {}})]
+    (is (= 200 (:status response)))
+    (is (= "OK" (:body response)))))

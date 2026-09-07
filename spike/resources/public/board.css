@@ -75,7 +75,8 @@ a {
   color: white;
 }
 
-#room-details {
+#room-details,
+#player-details {
   background: #f3e7ca;
   border: 3px solid #493d2c;
   border-radius: 0.6rem;
@@ -83,13 +84,21 @@ a {
   color: #211d18;
   max-width: min(22rem, calc(100vw - 2rem));
   padding: 0.9rem 1rem;
-  pointer-events: none;
   position: absolute;
   width: max-content;
   z-index: 2;
 }
 
-#room-details[hidden] {
+#room-details {
+  pointer-events: auto;
+}
+
+#player-details {
+  pointer-events: none;
+}
+
+#room-details[hidden],
+#player-details[hidden] {
   display: none;
 }
 
@@ -104,6 +113,75 @@ a {
   font-size: 0.9rem;
   line-height: 1.4;
   margin: 0;
+}
+
+.room-details-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: end;
+  margin-top: 0.75rem;
+}
+
+.room-details-actions form {
+  margin: 0;
+}
+
+.room-details-actions button {
+  background: #e8d8b5;
+  border: 1px solid #766751;
+  border-radius: 0.3rem;
+  color: #211d18;
+  cursor: pointer;
+  font: inherit;
+  min-height: 2rem;
+  padding: 0.35rem 0.65rem;
+}
+
+.room-details-actions button:hover {
+  background: #f7e9ca;
+}
+
+.room-details-actions button.danger {
+  background: #8b3434;
+  color: white;
+}
+
+.player-details-name,
+.player-details-character {
+  display: block;
+}
+
+.player-details-name {
+  font-family: Georgia, serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.player-details-character {
+  font-style: italic;
+  margin: 0.2rem 0 0.6rem;
+}
+
+.player-details-traits {
+  display: grid;
+  gap: 0.25rem 1rem;
+  grid-template-columns: 1fr 1fr;
+  margin: 0;
+}
+
+.player-details-traits div {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: space-between;
+}
+
+.player-details-traits dd,
+.player-details-traits dt {
+  margin: 0;
+}
+
+.player-details-traits dt {
+  font-weight: 700;
 }
 
 #board {
@@ -292,6 +370,16 @@ a {
 .button-stack {
   display: grid;
   gap: 0.4rem;
+}
+
+.zoom-actions {
+  display: grid;
+  gap: 0.4rem;
+  grid-template-columns: 1fr 2fr 1fr;
+}
+
+.zoom-actions button {
+  width: 100%;
 }
 
 .room-picker-preview {

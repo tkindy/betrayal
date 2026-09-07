@@ -1,0 +1,31 @@
+FROM clojure:temurin-21-tools-deps-bookworm-slim AS builder
+
+WORKDIR /build/spike
+
+COPY spike/deps.edn spike/build.clj ./
+RUN clojure -P && clojure -P -T:build
+
+COPY spike/src/ src/
+COPY spike/resources/ resources/
+COPY resources/ /build/resources/
+RUN clojure -T:build uber
+
+
+FROM liquibase/liquibase:4.31 AS liquibase
+
+
+FROM eclipse-temurin:21-jre-noble
+
+WORKDIR /app
+
+COPY --from=builder /build/spike/target/betrayal-clojure.jar ./
+COPY --from=liquibase /liquibase/ /opt/liquibase/
+COPY resources/migrations.sql ./
+COPY spike/entrypoint.sh ./
+
+RUN chmod +x entrypoint.sh
+
+ENV PORT=8080
+EXPOSE 8080
+
+ENTRYPOINT ["/app/entrypoint.sh"]

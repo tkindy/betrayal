@@ -14,6 +14,8 @@
   const svg = () => viewport.querySelector("#board");
   const world = () => viewport.querySelector("#world");
   const roomDetails = () => viewport.querySelector("#room-details");
+  const playerDetails = () => viewport.querySelector("#player-details");
+  let hideDetailsTimer;
 
   function connect() {
     const protocol = location.protocol === "https:" ? "wss:" : "ws:";
@@ -82,6 +84,16 @@
     return point.matrixTransform(world().getScreenCTM().inverse());
   }
 
+  function zoomAt(clientX, clientY, factor) {
+    const before = clientToWorld(clientX, clientY);
+    view.scale = Math.min(2.5, Math.max(0.2, view.scale * factor));
+    applyView();
+    const after = clientToWorld(clientX, clientY);
+    view.x += (after.x - before.x) * view.scale;
+    view.y += (after.y - before.y) * view.scale;
+    applyView();
+  }
+
   function parseTranslate(element) {
     const transform = element.getAttribute("transform") || "";
     const match = transform.match(
@@ -92,33 +104,21 @@
       : { x: 0, y: 0 };
   }
 
-  function hideRoomDetails() {
-    const details = roomDetails();
-    if (!details) return;
-    details.hidden = true;
-    details.setAttribute("aria-hidden", "true");
+  function hideBoardDetails() {
+    clearTimeout(hideDetailsTimer);
+    for (const details of [roomDetails(), playerDetails()]) {
+      if (!details) continue;
+      details.hidden = true;
+      details.setAttribute("aria-hidden", "true");
+    }
   }
 
-  function updateRoomDetails(event) {
-    if (gesture) {
-      hideRoomDetails();
-      return;
-    }
+  function scheduleHideBoardDetails() {
+    clearTimeout(hideDetailsTimer);
+    hideDetailsTimer = setTimeout(hideBoardDetails, 150);
+  }
 
-    const room = event.target.closest(".room-cell");
-    const details = roomDetails();
-    if (!room || !details) {
-      hideRoomDetails();
-      return;
-    }
-
-    details.querySelector(".room-details-name").textContent =
-      room.dataset.roomName;
-    details.querySelector(".room-details-description").textContent =
-      room.dataset.description || "No additional room rules.";
-    details.hidden = false;
-    details.setAttribute("aria-hidden", "false");
-
+  function positionBoardDetails(details, event) {
     const viewportBox = viewport.getBoundingClientRect();
     const gap = 16;
     const desiredX = event.clientX - viewportBox.left + gap;
@@ -133,10 +133,73 @@
     )}px`;
   }
 
+  function showRoomDetails(room, event) {
+    clearTimeout(hideDetailsTimer);
+    const details = roomDetails();
+    if (!details) return;
+    const playerCard = playerDetails();
+    if (playerCard) playerCard.hidden = true;
+    details.querySelector(".room-details-name").textContent =
+      room.dataset.roomName;
+    details.querySelector(".room-details-description").textContent =
+      room.dataset.description || "No additional room rules.";
+    details.querySelectorAll(".room-details-id").forEach((input) => {
+      input.value = room.dataset.id;
+    });
+    details.hidden = false;
+    details.setAttribute("aria-hidden", "false");
+    positionBoardDetails(details, event);
+  }
+
+  function showPlayerDetails(player, event) {
+    clearTimeout(hideDetailsTimer);
+    const details = playerDetails();
+    if (!details) return;
+    const roomCard = roomDetails();
+    if (roomCard) roomCard.hidden = true;
+    details.querySelector(".player-details-name").textContent =
+      player.dataset.playerName;
+    details.querySelector(".player-details-character").textContent =
+      player.dataset.characterName;
+    for (const trait of ["speed", "might", "sanity", "knowledge"]) {
+      details.querySelector(`.player-details-${trait}`).textContent =
+        player.dataset[trait];
+    }
+    details.hidden = false;
+    details.setAttribute("aria-hidden", "false");
+    positionBoardDetails(details, event);
+  }
+
+  function updateBoardDetails(event) {
+    if (gesture) {
+      hideBoardDetails();
+      return;
+    }
+
+    if (event.target.closest("#room-details")) {
+      clearTimeout(hideDetailsTimer);
+      return;
+    }
+
+    const room = event.target.closest(".room-cell");
+    if (room) {
+      showRoomDetails(room, event);
+      return;
+    }
+
+    const player = event.target.closest(".token.player");
+    if (player) {
+      showPlayerDetails(player, event);
+      return;
+    }
+
+    scheduleHideBoardDetails();
+  }
+
   function beginGesture(event) {
     if (event.button !== 0) return;
-    if (event.target.closest("#game-ui, .open-spot")) return;
-    hideRoomDetails();
+    if (event.target.closest("#game-ui, #room-details, .open-spot")) return;
+    hideBoardDetails();
     const piece = event.target.closest(".draggable");
     if (piece) {
       const point = clientToWorld(event.clientX, event.clientY);
@@ -310,6 +373,7 @@
     const form = event.target.closest("form.game-action");
     if (!form) return;
     event.preventDefault();
+    if (form.dataset.confirm && !window.confirm(form.dataset.confirm)) return;
     const button = event.submitter;
     if (button) button.disabled = true;
     sendCommand({
@@ -330,32 +394,42 @@
     });
   }
 
+  function changeBoardView(event) {
+    const button = event.target.closest("[data-board-view]");
+    if (!button) return;
+    if (button.dataset.boardView === "fit") {
+      fitBoard();
+      return;
+    }
+    const bounds = viewport.getBoundingClientRect();
+    zoomAt(
+      bounds.left + bounds.width / 2,
+      bounds.top + bounds.height / 2,
+      button.dataset.boardView === "zoom-in" ? 1.25 : 0.8
+    );
+  }
+
   viewport.addEventListener("pointerdown", beginGesture);
   viewport.addEventListener("pointermove", (event) => {
     updateGesture(event);
-    updateRoomDetails(event);
+    updateBoardDetails(event);
   });
-  viewport.addEventListener("pointerleave", hideRoomDetails);
+  viewport.addEventListener("pointerleave", hideBoardDetails);
   viewport.addEventListener("pointerup", finishGesture);
   viewport.addEventListener("pointercancel", finishGesture);
   viewport.addEventListener("submit", submitGameAction);
   viewport.addEventListener("toggle", enforceSingleOpenCard, true);
   viewport.addEventListener("change", selectViewedPlayer);
   viewport.addEventListener("click", closeInventoryCard);
+  viewport.addEventListener("click", changeBoardView);
   viewport.addEventListener("click", placeRoom);
   viewport.addEventListener(
     "wheel",
     (event) => {
       if (event.target.closest("#game-ui")) return;
       event.preventDefault();
-      const before = clientToWorld(event.clientX, event.clientY);
       const factor = Math.exp(-event.deltaY * 0.001);
-      view.scale = Math.min(2.5, Math.max(0.2, view.scale * factor));
-      applyView();
-      const after = clientToWorld(event.clientX, event.clientY);
-      view.x += (after.x - before.x) * view.scale;
-      view.y += (after.y - before.y) * view.scale;
-      applyView();
+      zoomAt(event.clientX, event.clientY, factor);
     },
     { passive: false }
   );

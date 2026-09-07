@@ -113,6 +113,16 @@
    (action-form game-id player-id "add-monster" {}
                 [:button.wide {:type "submit"} "Add monster"])])
 
+(defn- zoom-panel []
+  [:section#zoom-panel.panel
+   [:h2 "Board view"]
+   [:div.zoom-actions
+    [:button {:type "button" :data-board-view "zoom-out"
+              :aria-label "Zoom out"} "−"]
+    [:button {:type "button" :data-board-view "fit"} "Fit"]
+    [:button {:type "button" :data-board-view "zoom-in"
+              :aria-label "Zoom in"} "+"]]])
+
 (def floors
   [{:key \R :class "roof" :label "Roof"}
    {:key \U :class "upper" :label "Upper"}
@@ -340,6 +350,7 @@
          (dice-panel game-id player-id state)
          (draw-panel game-id player-id)
          (monster-panel game-id player-id)
+         (zoom-panel)
          (room-stack-panel game-id player-id (:room-stack state))]
         (character-panel game-id player-id players)
         (drawn-card-overlay game-id player-id players drawn-card)])))))

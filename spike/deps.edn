@@ -11,5 +11,8 @@
         compojure/compojure {:mvn/version "1.7.1"}
         hiccup/hiccup {:mvn/version "2.0.0-RC4"}}
  :aliases {:run {:main-opts ["-m" "betrayal.spike.main"]}
+           :build {:deps {io.github.clojure/tools.build
+                          {:mvn/version "0.10.6"}}
+                   :ns-default build}
            :test {:extra-paths ["test"]
                   :main-opts ["-m" "betrayal.spike.test-runner"]}}}

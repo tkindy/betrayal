@@ -20,10 +20,21 @@ clojure -M:run
 Then open <http://localhost:8081>. The index lists every game in that database;
 choose one to open its board.
 
-Set `PORT` to use a port other than 8081. Run from `spike/` so the prototype can
-read the API's existing `rooms.csv` and `characters.csv` definitions without
-duplicating them. Alternatively, set `BETRAYAL_DEFINITIONS_DIR` to the directory
-containing those files.
+Set `PORT` to use a port other than 8081. The shared room, character, card, and
+schema definitions live in the repository's `resources/` directory. Development
+reads them there, and the standalone build packages them on the application
+classpath. Alternatively, set `BETRAYAL_DEFINITIONS_DIR` to a directory
+containing the CSV definition files.
+
+Build a standalone jar from `spike/` with:
+
+```sh
+clojure -T:build uber
+```
+
+The production container also accepts `DB_HOST`, `DB_NAME`, `DB_USER`, and
+`DB_PASSWORD` separately and runs the shared Liquibase migrations before
+starting.
 
 The games listing shows a link for each player in a game. On loopback requests,
 that link's `player-id` query parameter identifies who that tab is playing as
@@ -39,9 +50,12 @@ playing as.
 ## Interactions
 
 - Drag empty board space to pan.
-- Scroll or use a trackpad to zoom around the pointer.
+- Scroll, use a trackpad, or use the board-view controls to zoom and fit.
 - Drag a room to an unoccupied grid cell.
+- Hover over a room to read its rules or safely rotate or return it from its
+  contextual menu. Returning a room requires confirmation.
 - Drag a player or monster to another room.
+- Hover over a player token to see their character and current traits.
 - Roll ordinary or haunt dice.
 - Draw, inspect, give, and discard cards. One inventory card can be open at a
   time; changing the viewed player closes it.
@@ -66,3 +80,21 @@ when server fragments update.
 ```sh
 clojure -M:test
 ```
+
+## Parallel deployment
+
+`Dockerfile.clojure` and `config/deploy.clojure.yml` define a separate
+`betrayal-clojure` service, so it can run alongside the original `betrayal`
+service against the same PostgreSQL database. Set `BETRAYAL_CLOJURE_HOST` to its
+separate hostname and deploy it with:
+
+```sh
+kamal deploy -c config/deploy.clojure.yml
+```
+
+Use only one implementation as the writer during a play session. Both use the
+same schema and definition files, so existing games and changes made by either
+implementation remain readable by the other. The current spike still relies on
+the original application to create a game until the lobby flow is ported.
+Real-time updates are not relayed between clients connected to different
+implementations.

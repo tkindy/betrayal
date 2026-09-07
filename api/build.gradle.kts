@@ -58,6 +58,12 @@ dependencies {
     testImplementation("org.testcontainers:postgresql:$testcontainersVersion")
 }
 
+sourceSets {
+    named("main") {
+        resources.srcDir("../resources")
+    }
+}
+
 application {
     mainClass.set("com.tylerkindy.betrayal.MainKt")
 }
@@ -67,7 +73,7 @@ liquibase {
 
     activities.register("main") {
         arguments = mapOf(
-            "changeLogFile" to "src/main/resources/migrations.sql",
+            "changeLogFile" to "../resources/migrations.sql",
             "url" to url
         )
     }

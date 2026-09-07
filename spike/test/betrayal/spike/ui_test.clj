@@ -37,7 +37,9 @@
       (is (re-find #"data-action=\"add-monster\"" html))
       (is (re-find #"data-action=\"flip-room-stack\"" html))
       (is (re-find #"data-action=\"set-trait\"" html))
-      (is (re-find #"data-action=\"discard-held-card\"" html)))
+      (is (re-find #"data-action=\"discard-held-card\"" html))
+      (is (re-find #"data-board-view=\"zoom-in\"" html))
+      (is (re-find #"data-board-view=\"fit\"" html)))
     (testing "the latest roll and held card are rendered"
       (is (re-find #"Total: 3" html))
       (is (re-find #"Chainsaw" html)))))

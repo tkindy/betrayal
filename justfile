@@ -4,7 +4,7 @@ install:
 dev:
     ./bin/dev
 
-build: build-api build-ui
+build: build-api build-ui build-clojure
 
 build-api:
     cd api && ./gradlew assemble
@@ -12,10 +12,16 @@ build-api:
 build-ui:
     cd ui && npm run build
 
-test: test-api test-ui
+build-clojure:
+    cd spike && clojure -T:build uber
+
+test: test-api test-ui test-clojure
 
 test-api:
     cd api && ./gradlew test
 
 test-ui:
     cd ui && CI=true npm test -- --watchAll=false
+
+test-clojure:
+    cd spike && clojure -M:test

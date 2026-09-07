@@ -8,10 +8,16 @@
 (defn datasource []
   (if-let [url (System/getenv "JDBC_DATABASE_URL")]
     (jdbc/get-datasource {:jdbcUrl url})
-    (throw
-     (ex-info
-      "JDBC_DATABASE_URL is required (for example jdbc:postgresql://localhost:5432/postgres?user=postgres&password=...)"
-      {}))))
+    (if-let [host (System/getenv "DB_HOST")]
+      (jdbc/get-datasource
+       {:jdbcUrl (format "jdbc:postgresql://%s:5432/%s"
+                         host (or (System/getenv "DB_NAME") "betrayal"))
+        :username (System/getenv "DB_USER")
+        :password (System/getenv "DB_PASSWORD")})
+      (throw
+       (ex-info
+        "Set JDBC_DATABASE_URL, or set DB_HOST, DB_NAME, DB_USER, and DB_PASSWORD"
+        {})))))
 
 (defn games [ds]
   (let [games (jdbc/execute! ds
@@ -182,6 +188,82 @@
      [(str "update monsters set \"gridX\" = ?, \"gridY\" = ?"
            " where id = ? and \"gameId\" = ?")
       grid-x grid-y monster-id game-id])))
+
+(defn rotate-room! [ds game-id room-id]
+  (jdbc/with-transaction [tx ds]
+    (require-entity! tx "rooms" game-id room-id)
+    (jdbc/execute-one!
+     tx
+     [(str "update rooms set rotation = mod(rotation + 3, 4)"
+           " where id = ? and \"gameId\" = ?")
+      room-id game-id])))
+
+(def ^:private starting-room-definition-ids #{0 1 2 8 10 33})
+
+(declare require-room-stack!)
+
+(defn return-room! [ds game-id room-id]
+  (jdbc/with-transaction [tx ds]
+    (let [room (or
+                (jdbc/execute-one!
+                 tx
+                 [(str "select \"roomDefId\" as room_def_id,"
+                       " \"gridX\" as grid_x, \"gridY\" as grid_y"
+                       " from rooms where id = ? and \"gameId\" = ? for update")
+                  room-id game-id]
+                 options)
+                (throw (ex-info "That room is not part of this game" {})))
+          stack (require-room-stack! tx game-id)]
+      (when (starting-room-definition-ids (:room_def_id room))
+        (throw (ex-info "Starting rooms cannot be returned to the stack" {})))
+      (when (:flipped stack)
+        (throw (ex-info "Place the flipped room before returning another room"
+                        {})))
+      (doseq [table ["players" "monsters"]]
+        (when (jdbc/execute-one!
+               tx
+               [(format
+                 (str "select id from %s where \"gameId\" = ?"
+                      " and \"gridX\" = ? and \"gridY\" = ? limit 1")
+                 table)
+                game-id (:grid_x room) (:grid_y room)]
+               options)
+          (throw (ex-info "A room containing players or monsters cannot be returned"
+                          {}))))
+      (jdbc/execute-one!
+       tx ["delete from rooms where id = ? and \"gameId\" = ?" room-id game-id])
+      (let [next-index
+            (inc (or
+                  (:last_index
+                   (jdbc/execute-one!
+                    tx
+                    [(str "select max(index) as last_index"
+                          " from \"roomStackContents\" where \"stackId\" = ?")
+                     (:id stack)]
+                    options))
+                  -1))]
+        (jdbc/execute-one!
+         tx
+         [(str "insert into \"roomStackContents\""
+               " (\"stackId\", index, \"roomDefId\") values (?, ?, ?)")
+          (:id stack) next-index (:room_def_id room)]))
+      (let [content-ids
+            (map :id
+                 (jdbc/execute!
+                  tx
+                  [(str "select id from \"roomStackContents\""
+                        " where \"stackId\" = ? order by random()")
+                   (:id stack)]
+                  options))]
+        (doseq [[index content-id] (map-indexed vector content-ids)]
+          (jdbc/execute-one!
+           tx
+           ["update \"roomStackContents\" set index = ? where id = ?"
+            index content-id])))
+      (jdbc/execute-one!
+       tx
+       ["update \"roomStacks\" set \"curIndex\" = 0 where id = ?"
+        (:id stack)]))))
 
 (defn roll-dice! [ds game-id num-dice type]
   (when-not (<= 1 num-dice 8)

@@ -9,7 +9,7 @@
 (defn- definition-source [resource-name]
   (or (io/resource resource-name)
       (let [directory (or (System/getenv "BETRAYAL_DEFINITIONS_DIR")
-                          "../api/src/main/resources")
+                          "../resources")
             file (io/file directory resource-name)]
         (when (.isFile file)
           file))
@@ -35,6 +35,14 @@
   (delay (into {} (map (juxt (comp parse-long :id) identity)
                        (read-definitions "characters.csv")))))
 
+(defn- trait-value [definition trait index]
+  (when (some? index)
+    (some-> (get definition trait)
+            (str/split #",")
+            (nth index nil)
+            (str/replace "*" "")
+            parse-long)))
+
 (def ^:private rotated {\E \N, \N \W, \W \S, \S \E})
 
 (defn rotate-doors [doors rotation]
@@ -54,10 +62,20 @@
                  rooms)
            :players
            (mapv (fn [player]
-                   (merge player
-                          (select-keys
-                           (get @character-definitions (:character_id player))
-                           [:color])))
+                   (let [definition
+                         (get @character-definitions (:character_id player))]
+                     (merge
+                      player
+                      {:character-name (:name definition)
+                       :color (:color definition)
+                       :speed (trait-value definition :speed
+                                           (:speed_index player))
+                       :might (trait-value definition :might
+                                           (:might_index player))
+                       :sanity (trait-value definition :sanity
+                                            (:sanity_index player))
+                       :knowledge (trait-value definition :knowledge
+                                               (:knowledge_index player))})))
                  players)
            :room-stack
            (when room-stack
@@ -118,13 +136,15 @@
             :x1 (ffirst points) :y1 (second (first points))
             :x2 (first (second points)) :y2 (second (second points))}]))
 
-(defn room-tile [{:keys [name doors features]}]
-  [:g {:class "room"}
-   [:rect {:class "room-background" :width cell-size :height cell-size :rx 8}]
-   (map door doors)
-   [:text {:class "room-name" :x (/ cell-size 2) :y 70} name]
-   (when-not (str/blank? features)
-     [:text {:class "features" :x (/ cell-size 2) :y 105} features])])
+(defn room-tile [{:keys [name doors features barrier-features]}]
+  (let [all-features
+        (str/join " " (map str (concat features barrier-features)))]
+    [:g {:class "room"}
+     [:rect {:class "room-background" :width cell-size :height cell-size :rx 8}]
+     (map door doors)
+     [:text {:class "room-name" :x (/ cell-size 2) :y 70} name]
+     (when-not (str/blank? all-features)
+       [:text {:class "features" :x (/ cell-size 2) :y 105} all-features])]))
 
 (defn- grouped [entities]
   (group-by (juxt :grid_x :grid_y) entities))
@@ -136,11 +156,17 @@
 
 (defn- player-token [player index total]
   [:g {:class "token player draggable"
+       :aria-label (str (:name player) " — " (:character-name player))
        :data-kind "player" :data-id (:id player)
        :data-grid-x (:grid_x player) :data-grid-y (:grid_y player)
+       :data-player-name (:name player)
+       :data-character-name (:character-name player)
+       :data-speed (:speed player)
+       :data-might (:might player)
+       :data-sanity (:sanity player)
+       :data-knowledge (:knowledge player)
        :transform (format "translate(%s %d)" (token-x index total) 137)}
-   [:circle {:r 14 :fill (str/lower-case (:color player))}]
-   [:title (str (:name player) " — drag to another room")]])
+   [:circle {:r 14 :fill (str/lower-case (:color player))}]])
 
 (defn- monster-token [monster index total]
   [:g {:class "token monster draggable"
@@ -213,4 +239,25 @@
         [:div#room-details
          {:role "dialog" :aria-hidden "true" :hidden true}
          [:strong.room-details-name]
-         [:p.room-details-description]]])))))
+         [:p.room-details-description]
+         [:div.room-details-actions
+          [:form.game-action
+           {:action "#" :data-action "rotate-room"}
+           [:input.room-details-id
+            {:type "hidden" :name "room-id"}]
+           [:button {:type "submit"} "Rotate"]]
+          [:form.game-action
+           {:action "#" :data-action "return-room"
+            :data-confirm "Return this room to the stack?"}
+           [:input.room-details-id
+            {:type "hidden" :name "room-id"}]
+           [:button.danger {:type "submit"} "Return to stack"]]]]
+        [:div#player-details
+         {:role "dialog" :aria-hidden "true" :hidden true}
+         [:strong.player-details-name]
+         [:span.player-details-character]
+         [:dl.player-details-traits
+          [:div [:dt "Speed"] [:dd.player-details-speed]]
+          [:div [:dt "Might"] [:dd.player-details-might]]
+          [:div [:dt "Sanity"] [:dd.player-details-sanity]]
+          [:div [:dt "Knowledge"] [:dd.player-details-knowledge]]]]])))))

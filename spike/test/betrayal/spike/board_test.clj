@@ -31,7 +31,9 @@
   (let [html (board/render-board
               {:rooms [{:id 1 :room_def_id 0 :grid_x 4 :grid_y 3 :rotation 0}]
                :players [{:id 2 :name "Player <one>" :character_id 0
-                          :grid_x 4 :grid_y 3}]
+                          :grid_x 4 :grid_y 3
+                          :speed_index 2 :might_index 2
+                          :sanity_index 2 :knowledge_index 2}]
                :monsters [{:id 3 :number 1 :grid_x 4 :grid_y 3}]})]
     (testing "the fragment contains all draggable entity types"
       (is (re-find #"data-kind=\"room\"" html))
@@ -49,15 +51,24 @@
     (testing "room details use the app hovercard rather than an SVG title"
       (is (re-find #"data-description=\"\"" html))
       (is (re-find #"id=\"room-details\"" html))
+      (is (re-find #"data-action=\"rotate-room\"" html))
+      (is (re-find #"data-action=\"return-room\"" html))
       (is (not (re-find #"<title>Entrance Hall</title>" html))))
+    (testing "player tokens provide data for an app hovercard"
+      (is (re-find #"data-player-name=\"Player &lt;one&gt;\"" html))
+      (is (re-find #"data-character-name=\"Ox Bellows\"" html))
+      (is (re-find #"data-speed=\"2\"" html))
+      (is (re-find #"id=\"player-details\"" html))
+      (is (not (re-find #"<title>Player" html))))
     (testing "Hiccup escapes database content"
       (is (re-find #"Player &lt;one&gt;" html)))))
 
 (deftest renders-a-reusable-room-tile
   (let [html (str (h/html
                    (board/room-tile
-                    {:name "Gallery" :doors "NS" :features "O"})))]
+                    {:name "Gallery" :doors "NS"
+                     :features "O" :barrier-features "I"})))]
     (is (re-find #"class=\"room\"" html))
     (is (re-find #">Gallery<" html))
-    (is (re-find #">O<" html))
+    (is (re-find #">O I<" html))
     (is (= 2 (count (re-seq #"class=\"door\"" html))))))
