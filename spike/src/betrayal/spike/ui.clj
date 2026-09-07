@@ -228,7 +228,7 @@
    [:div.inventory-popover
     [:button.inventory-card-close
      {:type "button" :aria-label "Close card details"}
-     "Close"]
+     "×"]
     (card-copy card)
     [:div.card-actions
      (action-form

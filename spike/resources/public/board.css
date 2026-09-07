@@ -529,7 +529,10 @@ a {
 
 .inventory-card-close {
   display: block;
+  font-size: 1.25rem;
+  line-height: 1;
   margin: 0 0 0.4rem auto;
+  padding: 0.2rem 0.55rem;
 }
 
 .card-copy h3 {
