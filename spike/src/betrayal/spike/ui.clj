@@ -317,14 +317,15 @@
         (when player-id
           (action-form game-id player-id "take-drawn-card" {}
                        [:button {:type "submit"} "Take"]))
-        (action-form game-id player-id "discard-drawn-card" {}
-                     [:button.danger {:type "submit"} "Discard"])
         (action-form
          game-id player-id "give-drawn-card" {:class "game-action inline-form"}
          [:select {:name "player-id" :aria-label "Give card to"}
           [:option {:value ""} "Give to…"]
           (player-options players nil)]
-         [:button {:type "submit"} "Give"])]]])])
+         [:button {:type "submit"} "Give"])
+        (action-form game-id player-id "discard-drawn-card"
+                     {:class "game-action discard-action"}
+                     [:button.danger {:type "submit"} "Discard"])]]])])
 
 (defn- error-region [error]
   [:div#action-error-region

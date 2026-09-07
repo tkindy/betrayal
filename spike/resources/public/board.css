@@ -705,8 +705,11 @@ a {
 .card-actions {
   display: flex;
   gap: 0.5rem;
-  justify-content: end;
   margin-top: 0.8rem;
+}
+
+.card-actions .discard-action {
+  margin-left: auto;
 }
 
 .card-actions select {

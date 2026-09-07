@@ -70,7 +70,11 @@
         anonymous-html (ui/render-ui "ABC123" drawn-state nil nil)]
     (testing "the acting player can take a drawn card directly"
       (is (re-find #"/actions/take-drawn-card\?player-id=7" identified-html))
-      (is (re-find #">Take<" identified-html)))
+      (is (re-find #">Take<" identified-html))
+      (is (< (.indexOf identified-html "take-drawn-card")
+             (.indexOf identified-html "give-drawn-card")
+             (.indexOf identified-html "discard-drawn-card"))
+          "take and give precede the right-aligned discard action"))
     (testing "an unidentified tab cannot take the card directly"
       (is (not (re-find #"/actions/take-drawn-card" anonymous-html)))
       (is (re-find #">Viewing<" anonymous-html))
