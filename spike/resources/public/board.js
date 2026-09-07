@@ -9,6 +9,7 @@
 
   const svg = () => viewport.querySelector("#board");
   const world = () => viewport.querySelector("#world");
+  const roomDetails = () => viewport.querySelector("#room-details");
 
   function applyView() {
     world()?.setAttribute(
@@ -56,8 +57,50 @@
       : { x: 0, y: 0 };
   }
 
+  function hideRoomDetails() {
+    const details = roomDetails();
+    if (!details) return;
+    details.hidden = true;
+    details.setAttribute("aria-hidden", "true");
+  }
+
+  function updateRoomDetails(event) {
+    if (gesture) {
+      hideRoomDetails();
+      return;
+    }
+
+    const room = event.target.closest(".room-cell");
+    const details = roomDetails();
+    if (!room || !details) {
+      hideRoomDetails();
+      return;
+    }
+
+    details.querySelector(".room-details-name").textContent =
+      room.dataset.roomName;
+    details.querySelector(".room-details-description").textContent =
+      room.dataset.description || "No additional room rules.";
+    details.hidden = false;
+    details.setAttribute("aria-hidden", "false");
+
+    const viewportBox = viewport.getBoundingClientRect();
+    const gap = 16;
+    const desiredX = event.clientX - viewportBox.left + gap;
+    const desiredY = event.clientY - viewportBox.top + gap;
+    details.style.left = `${Math.max(
+      gap,
+      Math.min(desiredX, viewport.clientWidth - details.offsetWidth - gap)
+    )}px`;
+    details.style.top = `${Math.max(
+      gap,
+      Math.min(desiredY, viewport.clientHeight - details.offsetHeight - gap)
+    )}px`;
+  }
+
   function beginGesture(event) {
     if (event.button !== 0) return;
+    hideRoomDetails();
     const piece = event.target.closest(".draggable");
     if (piece) {
       const point = clientToWorld(event.clientX, event.clientY);
@@ -166,7 +209,11 @@
   }
 
   viewport.addEventListener("pointerdown", beginGesture);
-  viewport.addEventListener("pointermove", updateGesture);
+  viewport.addEventListener("pointermove", (event) => {
+    updateGesture(event);
+    updateRoomDetails(event);
+  });
+  viewport.addEventListener("pointerleave", hideRoomDetails);
   viewport.addEventListener("pointerup", finishGesture);
   viewport.addEventListener("pointercancel", finishGesture);
   viewport.addEventListener(

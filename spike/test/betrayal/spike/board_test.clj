@@ -36,5 +36,9 @@
     (testing "players and monsters share one centered row"
       (is (re-find #"player draggable\"[^>]+translate\(74 137\)" html))
       (is (re-find #"monster draggable\"[^>]+translate\(106 137\)" html)))
+    (testing "room details use the app hovercard rather than an SVG title"
+      (is (re-find #"data-description=\"\"" html))
+      (is (re-find #"id=\"room-details\"" html))
+      (is (not (re-find #"<title>Entrance Hall</title>" html))))
     (testing "Hiccup escapes database content"
       (is (re-find #"Player &lt;one&gt;" html)))))

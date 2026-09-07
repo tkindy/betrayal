@@ -83,15 +83,13 @@
             :x1 (ffirst points) :y1 (second (first points))
             :x2 (first (second points)) :y2 (second (second points))}]))
 
-(defn- room [{:keys [name doors features description]}]
+(defn- room [{:keys [name doors features]}]
   [:g {:class "room"}
    [:rect {:class "room-background" :width cell-size :height cell-size :rx 8}]
    (map door doors)
    [:text {:class "room-name" :x (/ cell-size 2) :y 70} name]
    (when-not (str/blank? features)
-     [:text {:class "features" :x (/ cell-size 2) :y 105} features])
-   (when-not (str/blank? description)
-     [:title description])])
+     [:text {:class "features" :x (/ cell-size 2) :y 105} features])])
 
 (defn- grouped [entities]
   (group-by (juxt :grid_x :grid_y) entities))
@@ -137,9 +135,12 @@
           [:g.rooms
            (for [room-data (:rooms board)]
              [:g {:class "room-cell draggable"
+                  :aria-label (:name room-data)
                   :data-kind "room" :data-id (:id room-data)
                   :data-grid-x (:grid_x room-data)
                   :data-grid-y (:grid_y room-data)
+                  :data-room-name (:name room-data)
+                  :data-description (or (:description room-data) "")
                   :transform (format "translate(%d %d)"
                                      (* (:grid_x room-data) cell-size)
                                      (* (:grid_y room-data) cell-size))}
@@ -165,4 +166,8 @@
               (map-indexed
                (fn [index monster]
                  (monster-token monster (+ player-count index) token-count))
-               room-monsters)])]]]])))))
+               room-monsters)])]]]
+        [:div#room-details
+         {:role "dialog" :aria-hidden "true" :hidden true}
+         [:strong.room-details-name]
+         [:p.room-details-description]]])))))
