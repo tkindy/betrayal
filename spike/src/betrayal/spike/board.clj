@@ -166,7 +166,7 @@
 
 (defn- player-token [player index total]
   [:g {:class "token player draggable"
-       :aria-label (str (:name player) " — " (:character-name player))
+       :aria-label (str (:character-name player) " — " (:name player))
        :data-kind "player" :data-id (:id player)
        :data-grid-x (:grid_x player) :data-grid-y (:grid_y player)
        :data-player-name (:name player)
@@ -275,8 +275,8 @@
             [:button.danger {:type "submit"} "Return to stack"]]]]]
         [:div#player-details
          {:role "dialog" :aria-hidden "true" :hidden true}
-         [:strong.player-details-name]
-         [:span.player-details-character]
+         [:strong.player-details-character]
+         [:span.player-details-name]
          [:dl.player-details-traits
           [:div [:dt "Speed"] [:dd.player-details-speed]]
           [:div [:dt "Might"] [:dd.player-details-might]]

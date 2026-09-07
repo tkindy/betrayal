@@ -187,13 +187,13 @@ a {
   display: block;
 }
 
-.player-details-name {
+.player-details-character {
   font-family: Georgia, serif;
   font-size: 1.1rem;
   font-weight: 700;
 }
 
-.player-details-character {
+.player-details-name {
   font-style: italic;
   margin: 0.2rem 0 0.6rem;
 }

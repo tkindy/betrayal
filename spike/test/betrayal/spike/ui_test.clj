@@ -91,8 +91,8 @@
         two-player-state (update state :players conj other-player)
         html (ui/render-ui "ABC123" two-player-state 7 nil)]
     (is (re-find #">Viewing<" html))
-    (is (re-find #">Alex — Ox Bellows<" html))
-    (is (re-find #">Blair — Ox Bellows<" html))
+    (is (re-find #">Ox Bellows — Alex<" html))
+    (is (re-find #">Ox Bellows — Blair<" html))
     (is (re-find #"data-viewed-player-id=\"7\"" html))
     (is (re-find #"data-viewed-player-id=\"8\" hidden" html))))
 

@@ -59,8 +59,12 @@
     (testing "player tokens provide data for an app hovercard"
       (is (re-find #"data-player-name=\"Player &lt;one&gt;\"" html))
       (is (re-find #"data-character-name=\"Ox Bellows\"" html))
+      (is (re-find #"aria-label=\"Ox Bellows — Player &lt;one&gt;\"" html))
       (is (re-find #"data-speed=\"2\"" html))
       (is (re-find #"id=\"player-details\"" html))
+      (is (< (.indexOf html "player-details-character")
+             (.indexOf html "player-details-name"))
+          "the prominent character name precedes the player name")
       (is (not (re-find #"<title>Player" html))))
     (testing "Hiccup escapes database content"
       (is (re-find #"Player &lt;one&gt;" html)))))

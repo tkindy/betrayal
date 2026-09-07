@@ -247,7 +247,7 @@
 (defn- player-options [players excluded-player-id]
   (for [player players :when (not= excluded-player-id (:id player))]
     [:option {:value (:id player)}
-     (str (:name player) " — " (:character-name player))]))
+     (str (:character-name player) " — " (:name player))]))
 
 (defn- inventory-card [game-id player-id players player card]
   [:details.inventory-card
@@ -301,7 +301,7 @@
        (for [candidate players]
          [:option {:value (:id candidate)
                    :selected (= (:id candidate) selected-player-id)}
-          (str (:name candidate) " — " (:character-name candidate))])]]
+          (str (:character-name candidate) " — " (:name candidate))])]]
      (for [player players]
        [:div.character-content
         (cond-> {:data-viewed-player-id (:id player)}
