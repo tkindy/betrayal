@@ -132,21 +132,30 @@
          (or error "Drag rooms, players, and monsters. Drag empty space to pan; scroll to zoom.")]
         [:svg#board {:aria-label "Betrayal game board"}
          [:g#world
-          (for [room-data (:rooms board)
-                :let [loc [(:grid_x room-data) (:grid_y room-data)]
-                      room-players (get players loc)
-                      room-monsters (get monsters loc)]]
-            [:g {:class "room-cell draggable"
-                 :data-kind "room" :data-id (:id room-data)
-                 :data-grid-x (:grid_x room-data)
-                 :data-grid-y (:grid_y room-data)
-                 :transform (format "translate(%d %d)"
-                                    (* (:grid_x room-data) cell-size)
-                                    (* (:grid_y room-data) cell-size))}
-             (room room-data)
-             [:g
+          [:g.rooms
+           (for [room-data (:rooms board)]
+             [:g {:class "room-cell draggable"
+                  :data-kind "room" :data-id (:id room-data)
+                  :data-grid-x (:grid_x room-data)
+                  :data-grid-y (:grid_y room-data)
+                  :transform (format "translate(%d %d)"
+                                     (* (:grid_x room-data) cell-size)
+                                     (* (:grid_y room-data) cell-size))}
+              (room room-data)])]
+          [:g.tokens
+           (for [room-data (:rooms board)
+                 :let [loc [(:grid_x room-data) (:grid_y room-data)]
+                       room-players (get players loc)
+                       room-monsters (get monsters loc)]
+                 :when (or (seq room-players) (seq room-monsters))]
+             [:g {:class "agents"
+                  :data-grid-x (:grid_x room-data)
+                  :data-grid-y (:grid_y room-data)
+                  :transform (format "translate(%d %d)"
+                                     (* (:grid_x room-data) cell-size)
+                                     (* (:grid_y room-data) cell-size))}
               (map-indexed
                (fn [index player]
                  (player-token player index (count room-players)))
                room-players)
-              (map-indexed monster-token room-monsters)]])]]])))))
+              (map-indexed monster-token room-monsters)])]]]])))))

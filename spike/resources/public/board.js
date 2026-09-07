@@ -61,14 +61,23 @@
     const piece = event.target.closest(".draggable");
     if (piece) {
       const point = clientToWorld(event.clientX, event.clientY);
+      const companion =
+        piece.dataset.kind === "room"
+          ? viewport.querySelector(
+              `.agents[data-grid-x="${piece.dataset.gridX}"][data-grid-y="${piece.dataset.gridY}"]`
+            )
+          : null;
       gesture = {
         type: "piece",
         pointerId: event.pointerId,
         element: piece,
         origin: parseTranslate(piece),
+        companion,
+        companionOrigin: companion ? parseTranslate(companion) : null,
         point,
       };
       piece.classList.add("dragging");
+      companion?.classList.add("dragging");
     } else {
       gesture = {
         type: "pan",
@@ -93,6 +102,16 @@
     const x = gesture.origin.x + point.x - gesture.point.x;
     const y = gesture.origin.y + point.y - gesture.point.y;
     gesture.element.setAttribute("transform", `translate(${x} ${y})`);
+    if (gesture.companion) {
+      const companionX =
+        gesture.companionOrigin.x + point.x - gesture.point.x;
+      const companionY =
+        gesture.companionOrigin.y + point.y - gesture.point.y;
+      gesture.companion.setAttribute(
+        "transform",
+        `translate(${companionX} ${companionY})`
+      );
+    }
   }
 
   async function finishGesture(event) {
@@ -103,6 +122,7 @@
     if (completed.type !== "piece") return;
 
     completed.element.classList.remove("dragging");
+    completed.companion?.classList.remove("dragging");
     const point = clientToWorld(event.clientX, event.clientY);
     let gridX;
     let gridY;
@@ -136,6 +156,12 @@
         "transform",
         `translate(${completed.origin.x} ${completed.origin.y})`
       );
+      if (completed.companion) {
+        completed.companion.setAttribute(
+          "transform",
+          `translate(${completed.companionOrigin.x} ${completed.companionOrigin.y})`
+        );
+      }
     }
   }
 

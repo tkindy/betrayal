@@ -28,5 +28,10 @@
       (is (re-find #"data-id=\"1\" data-kind=\"room\"" html))
       (is (re-find #"data-kind=\"player\"" html))
       (is (re-find #"data-kind=\"monster\"" html)))
+    (testing "tokens render in a separate layer above every room"
+      (let [rooms-layer (.indexOf html "class=\"rooms\"")
+            tokens-layer (.indexOf html "class=\"tokens\"")]
+        (is (<= 0 rooms-layer))
+        (is (< rooms-layer tokens-layer))))
     (testing "Hiccup escapes database content"
       (is (re-find #"Player &lt;one&gt;" html)))))
