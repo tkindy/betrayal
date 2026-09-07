@@ -44,16 +44,18 @@ playing as.
 - Drag a player or monster to another room.
 - Roll ordinary or haunt dice.
 - Draw, inspect, give, and discard cards.
-- Take a drawn card directly for the session's player.
+- Take a drawn card directly for the tab's acting player.
 - Select a character and update their traits and inventory.
 - Add and move monsters.
 - Flip, rotate, skip, and place rooms from the room stack.
 
 The browser sends drops and game-control commands over one WebSocket connection.
-The server validates and persists each command, then broadcasts new board and
-UI fragments to every client connected to that game. The browser swaps those
-fragments without resetting its local viewport. Invalid commands return an
-authoritative fragment with an error only to the initiating client.
+The server validates and persists each command, then broadcasts only the keyed
+board and UI regions affected by that command. Unrelated DOM—and therefore
+client-owned state such as an open inventory card, focus, or the viewed
+player—stays in place. When an inventory does change, stable card IDs preserve
+the open state of cards that remain in that inventory. Invalid commands return
+authoritative fragments with an error only to the initiating client.
 
 Game controls are rendered as overlays so the board viewport remains stable
 when server fragments update.

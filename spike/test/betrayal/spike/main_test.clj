@@ -55,3 +55,15 @@
         (is (re-find #"/games/GAME\?player-id=8" html))
         (is (re-find #">Alex<" html))
         (is (re-find #">Blair<" html))))))
+
+(deftest trait-actions-only-invalidate-that-players-traits
+  (with-redefs-fn
+    {#'main/ds (delay :test-datasource)
+     #'db/set-trait! (fn [datasource game-id player-id trait index]
+                       (is (= [:test-datasource "GAME" 7 "speed" 3]
+                              [datasource game-id player-id trait index])))}
+    (fn []
+      (is (= #{[:traits 7]}
+             (#'main/run-action!
+              "GAME" 8 "set-trait"
+              {:player-id "7" :trait "speed" :index "3"}))))))

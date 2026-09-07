@@ -55,7 +55,7 @@
                            {:id 10 :card_type_id 1 :card_def_id 0})
         identified-html (ui/render-ui "ABC123" drawn-state 7 nil)
         anonymous-html (ui/render-ui "ABC123" drawn-state nil nil)]
-    (testing "the session player can take a drawn card directly"
+    (testing "the acting player can take a drawn card directly"
       (is (re-find #"data-action=\"take-drawn-card\"" identified-html))
       (is (re-find #">Take<" identified-html)))
     (testing "an unidentified tab cannot take the card directly"
@@ -74,3 +74,17 @@
     (is (re-find #">Blair — Ox Bellows<" html))
     (is (re-find #"data-viewed-player-id=\"7\"" html))
     (is (re-find #"data-viewed-player-id=\"8\" hidden" html))))
+
+(deftest renders-only-requested-update-regions
+  (let [traits-html (ui/render-updates
+                     "ABC123" state 7 nil #{[:traits 7]})
+        inventory-html (ui/render-updates
+                        "ABC123" state 7 nil #{[:inventory 7]})]
+    (testing "a trait update does not replace the player's inventory"
+      (is (re-find #"id=\"player-7-traits\"" traits-html))
+      (is (not (re-find #"id=\"player-7-inventory\"" traits-html)))
+      (is (not (re-find #"id=\"dice-panel\"" traits-html))))
+    (testing "inventory cards have stable identities"
+      (is (re-find #"id=\"player-7-inventory\"" inventory-html))
+      (is (re-find #"id=\"inventory-card-42\"" inventory-html))
+      (is (not (re-find #"id=\"player-7-traits\"" inventory-html))))))

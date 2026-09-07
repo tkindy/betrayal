@@ -76,7 +76,7 @@
         values (:values latest-roll)
         total (reduce + 0 values)
         haunt? (= "HAUNT" (:type latest-roll))]
-    [:section.panel.dice-panel
+    [:section#dice-panel.panel.dice-panel
      [:h2 "Dice"]
      (action-form
       game-id player-id "roll" {:class "game-action inline-form"}
@@ -99,7 +99,7 @@
            (if (< total omen-count) "Haunt time!" "No haunt")])])]))
 
 (defn- draw-panel [game-id player-id]
-  [:section.panel
+  [:section#draw-panel.panel
    [:h2 "Cards"]
    [:div.button-stack
     (for [[type-id {:keys [label]}] card-types]
@@ -109,7 +109,7 @@
        [:button {:type "submit"} (str "Draw " (str/lower-case label))]))]])
 
 (defn- monster-panel [game-id player-id]
-  [:section.panel
+  [:section#monster-panel.panel
    (action-form game-id player-id "add-monster" {}
                 [:button.wide {:type "submit"} "Add monster"])])
 
@@ -149,7 +149,7 @@
                            :doors (board/rotate-doors
                                    (:doors definition)
                                    (or (:rotation room-stack) 0))))]
-    [:section.panel.room-stack-panel
+    [:section#room-stack-panel.panel.room-stack-panel
      [:h2 "Room stack"]
      (cond
        (nil? (:cur_index room-stack))
@@ -220,7 +220,9 @@
      (str (:name player) " — " (:character-name player))]))
 
 (defn- inventory-card [game-id player-id players player card]
-  [:details.inventory-card {:class (name (:key card))}
+  [:details.inventory-card
+   {:id (str "inventory-card-" (:id card))
+    :class (name (:key card))}
    [:summary (:name card)]
    [:div.inventory-popover
     (card-copy card)
@@ -239,6 +241,20 @@
        (player-options players (:id player))]
       [:button {:type "submit"} "Give"])]]])
 
+(defn- traits-panel [game-id player-id player]
+  [:div.traits {:id (str "player-" (:id player) "-traits")}
+   (for [trait trait-names]
+     (render-trait game-id player-id player trait))])
+
+(defn- inventory-panel [game-id player-id players player]
+  [:div.inventory {:id (str "player-" (:id player) "-inventory")}
+   [:h2 "Inventory"]
+   (if (seq (:cards player))
+     [:div.inventory-cards
+      (for [card (:cards player)]
+        (inventory-card game-id player-id players player card))]
+     [:i "Inventory empty"])])
+
 (defn- character-panel [game-id player-id players]
   (let [selected-player-id
         (or (some #(when (= player-id (:id %)) player-id) players)
@@ -255,36 +271,57 @@
        [:div.character-content
         (cond-> {:data-viewed-player-id (:id player)}
           (not= (:id player) selected-player-id) (assoc :hidden true))
-        [:div.traits
-         (for [trait trait-names]
-           (render-trait game-id player-id player trait))]
-        [:div.inventory
-         [:h2 "Inventory"]
-         (if (seq (:cards player))
-           [:div.inventory-cards
-            (for [card (:cards player)]
-              (inventory-card game-id player-id players player card))]
-           [:i "Inventory empty"])]])]))
+         (traits-panel game-id player-id player)
+         (inventory-panel game-id player-id players player)])]))
 
 (defn- drawn-card-overlay [game-id player-id players card]
-  (when card
-    [:div#drawn-card-overlay
-     [:section.drawn-card {:class (name (:key card))}
-      (card-copy card)
-      (when (= :omen (:key card))
-        [:strong "Make a haunt roll now."])
-      [:div.card-actions
-       (when player-id
-         (action-form game-id player-id "take-drawn-card" {}
-                      [:button {:type "submit"} "Take"]))
-       (action-form game-id player-id "discard-drawn-card" {}
-                    [:button.danger {:type "submit"} "Discard"])
-       (action-form
-        game-id player-id "give-drawn-card" {:class "game-action inline-form"}
-        [:select {:name "player-id" :aria-label "Give card to"}
-         [:option {:value ""} "Give to…"]
-         (player-options players nil)]
-        [:button {:type "submit"} "Give"])]]]))
+  [:div#drawn-card-region
+   (when card
+     [:div#drawn-card-overlay
+      [:section.drawn-card {:class (name (:key card))}
+       (card-copy card)
+       (when (= :omen (:key card))
+         [:strong "Make a haunt roll now."])
+       [:div.card-actions
+        (when player-id
+          (action-form game-id player-id "take-drawn-card" {}
+                       [:button {:type "submit"} "Take"]))
+        (action-form game-id player-id "discard-drawn-card" {}
+                     [:button.danger {:type "submit"} "Discard"])
+        (action-form
+         game-id player-id "give-drawn-card" {:class "game-action inline-form"}
+         [:select {:name "player-id" :aria-label "Give card to"}
+          [:option {:value ""} "Give to…"]
+          (player-options players nil)]
+         [:button {:type "submit"} "Give"])]]])])
+
+(defn- error-region [error]
+  [:div#action-error-region
+   (cond-> {:class "action-error"}
+     (nil? error) (assoc :hidden true))
+   error])
+
+(defn render-updates [game-id state player-id error regions]
+  (let [{:keys [players drawn-card] :as state} (prepare-state state)
+        player-id (when (some #(= player-id (:id %)) players) player-id)
+        include? #(or (contains? regions :all) (contains? regions %))]
+    (str
+     (h/html
+      [:div#ui-updates
+       (when (include? :error)
+         (error-region error))
+       (when (include? :dice)
+         (dice-panel game-id player-id state))
+       (when (include? :room-stack)
+         (room-stack-panel game-id player-id (:room-stack state)))
+       (when (include? :drawn-card)
+         (drawn-card-overlay game-id player-id players drawn-card))
+       (for [player players
+             :when (include? [:traits (:id player)])]
+         (traits-panel game-id player-id player))
+       (for [player players
+             :when (include? [:inventory (:id player)])]
+         (inventory-panel game-id player-id players player))]))))
 
 (defn render-ui
   ([game-id state] (render-ui game-id state nil nil))
@@ -294,7 +331,7 @@
      (str
       (h/html
        [:div#game-ui {:data-player-id player-id}
-        (when error [:div.action-error error])
+        (error-region error)
         [:aside#game-sidebar
          (dice-panel game-id player-id state)
          (draw-panel game-id player-id)

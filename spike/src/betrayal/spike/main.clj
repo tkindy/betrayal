@@ -78,68 +78,97 @@
   (or (some-> value parse-long)
       (throw (ex-info (str label " must be an integer") {}))))
 
-(defn- render-fragments-from-state [game-id state player-id error]
+(defn- render-fragments-from-state
+  [game-id state player-id error regions]
   (str
    (h/html
     [:div#game-fragments
-     (h/raw (board/render-board state))
-     (h/raw (ui/render-ui game-id state player-id error))])))
+     (when (or (contains? regions :all)
+               (contains? regions :board))
+       (h/raw (board/render-board state)))
+     (h/raw (ui/render-updates
+             game-id state player-id error regions))])))
 
-(defn- render-fragments [game-id player-id error]
+(defn- render-fragments [game-id player-id error regions]
   (render-fragments-from-state
-   game-id (db/game-state @ds game-id) player-id error))
+   game-id (db/game-state @ds game-id) player-id error regions))
 
 (defn- run-action! [game-id player-id action params]
   (case action
     "roll"
-    (db/roll-dice! @ds game-id
-                   (parse-int (:num-dice params) "Number of dice")
-                   (:roll-type params))
+    (do
+      (db/roll-dice! @ds game-id
+                     (parse-int (:num-dice params) "Number of dice")
+                     (:roll-type params))
+      #{:dice})
 
     "set-trait"
-    (db/set-trait! @ds game-id
-                   (parse-int (:player-id params) "Player ID")
-                   (:trait params)
-                   (parse-int (:index params) "Trait index"))
+    (let [target-player-id (parse-int (:player-id params) "Player ID")]
+      (db/set-trait! @ds game-id
+                     target-player-id
+                     (:trait params)
+                     (parse-int (:index params) "Trait index"))
+      #{[:traits target-player-id]})
 
     "add-monster"
-    (db/add-monster! @ds game-id)
+    (do
+      (db/add-monster! @ds game-id)
+      #{:board})
 
     "draw-card"
-    (db/draw-card! @ds game-id
-                   (parse-int (:card-type params) "Card type"))
+    (do
+      (db/draw-card! @ds game-id
+                     (parse-int (:card-type params) "Card type"))
+      #{:drawn-card})
 
     "discard-drawn-card"
-    (db/discard-drawn-card! @ds game-id)
+    (do
+      (db/discard-drawn-card! @ds game-id)
+      #{:drawn-card})
 
     "give-drawn-card"
-    (db/give-drawn-card! @ds game-id
-                         (parse-int (:player-id params) "Player ID"))
+    (let [target-player-id (parse-int (:player-id params) "Player ID")]
+      (db/give-drawn-card! @ds game-id target-player-id)
+      #{:drawn-card :dice [:inventory target-player-id]})
 
     "take-drawn-card"
     (if player-id
-      (db/give-drawn-card! @ds game-id player-id)
+      (do
+        (db/give-drawn-card! @ds game-id player-id)
+        #{:drawn-card :dice [:inventory player-id]})
       (throw (ex-info "Choose which player you are before taking a card" {})))
 
     "discard-held-card"
-    (db/discard-held-card! @ds game-id
-                           (parse-int (:player-id params) "Player ID")
-                           (parse-int (:card-id params) "Card ID"))
+    (let [target-player-id (parse-int (:player-id params) "Player ID")]
+      (db/discard-held-card! @ds game-id
+                             target-player-id
+                             (parse-int (:card-id params) "Card ID"))
+      #{:dice [:inventory target-player-id]})
 
     "give-held-card"
-    (db/give-held-card! @ds game-id
-                        (parse-int (:player-id params) "Player ID")
-                        (parse-int (:card-id params) "Card ID")
-                        (parse-int (:to-player-id params) "Recipient"))
+    (let [source-player-id (parse-int (:player-id params) "Player ID")
+          target-player-id (parse-int (:to-player-id params) "Recipient")]
+      (db/give-held-card! @ds game-id
+                          source-player-id
+                          (parse-int (:card-id params) "Card ID")
+                          target-player-id)
+      #{[:inventory source-player-id]
+        [:inventory target-player-id]})
 
     "advance-room-stack"
-    (db/advance-room-stack! @ds game-id)
+    (do
+      (db/advance-room-stack! @ds game-id)
+      #{:board :room-stack})
 
     "flip-room-stack"
-    (db/flip-room-stack! @ds game-id)
+    (do
+      (db/flip-room-stack! @ds game-id)
+      #{:board :room-stack})
 
     "rotate-room-stack"
-    (db/rotate-room-stack! @ds game-id)
+    (do
+      (db/rotate-room-stack! @ds game-id)
+      #{:board :room-stack})
 
     "place-room"
     (let [grid-x (parse-int (:grid-x params) "Grid X")
@@ -147,7 +176,8 @@
           state (board/enrich-board (db/game-state @ds game-id))]
       (when-not (some #{[grid-x grid-y]} (board/open-spots state))
         (throw (ex-info "The flipped room cannot connect at that location" {})))
-      (db/place-room! @ds game-id grid-x grid-y))
+      (db/place-room! @ds game-id grid-x grid-y)
+      #{:board :room-stack})
 
     (throw (ex-info "Unknown game action" {}))))
 
@@ -158,21 +188,23 @@
     (db/move! @ds game-id kind
               (parse-int id "Piece ID")
               (parse-int grid-x "Grid X")
-              (parse-int grid-y "Grid Y"))))
+              (parse-int grid-y "Grid Y"))
+    #{:board}))
 
 (defonce ^:private clients (atom {}))
 
-(defn- send-state! [channel error]
+(defn- send-state! [channel error regions]
   (when-let [{:keys [game-id player-id]} (get @clients channel)]
-    (send! channel (render-fragments game-id player-id error))))
+    (send! channel (render-fragments game-id player-id error regions))))
 
-(defn- broadcast-state! [game-id]
+(defn- broadcast-state! [game-id regions]
   (let [state (db/game-state @ds game-id)]
     (doseq [[channel client] @clients
             :when (= game-id (:game-id client))]
       (send! channel
              (render-fragments-from-state
-              game-id state (:player-id client) nil)))))
+              game-id state (:player-id client) nil
+              (conj regions :error))))))
 
 (defn- receive-command! [channel message]
   (try
@@ -181,20 +213,18 @@
           {:keys [game-id player-id]} (get @clients channel)]
       (case command
         "move"
-        (do
-          (run-move! game-id params)
-          (broadcast-state! game-id))
+        (broadcast-state! game-id (run-move! game-id params))
 
         "action"
-        (do
-          (run-action! game-id player-id action params)
-          (broadcast-state! game-id))
+        (broadcast-state!
+         game-id (run-action! game-id player-id action params))
 
         (throw (ex-info "Unknown WebSocket command" {}))))
     (catch Exception exception
       (send-state! channel
                    (or (ex-message exception)
-                       "That command could not be completed")))))
+                       "That command could not be completed")
+                   #{:all}))))
 
 (defn- game-websocket [request game-id]
   (if-not (db/game @ds game-id)
@@ -206,7 +236,7 @@
         (fn [channel]
           (swap! clients assoc channel {:game-id game-id
                                         :player-id player-id})
-          (send-state! channel nil))
+          (send-state! channel nil #{:all}))
         :on-receive
         (fn [channel message]
           (receive-command! channel message))

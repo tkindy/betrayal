@@ -227,16 +227,38 @@
 
   function swapGameFragments(html) {
     const document = new DOMParser().parseFromString(html, "text/html");
-    const nextBoard = document.querySelector("#board-state");
-    const nextUi = document.querySelector("#game-ui");
-    if (nextBoard) {
-      viewport.querySelector("#board-state").replaceWith(nextBoard);
-      applyView();
+    const payload = document.querySelector("#game-fragments");
+    if (!payload) return;
+
+    const fragments = Array.from(payload.children).flatMap((element) =>
+      element.id === "ui-updates" ? Array.from(element.children) : [element]
+    );
+    let boardChanged = false;
+    for (const fragment of fragments) {
+      if (!fragment.id) continue;
+      const current = viewport.querySelector(`#${CSS.escape(fragment.id)}`);
+      if (!current) continue;
+      const openDetails = new Set(
+        Array.from(current.querySelectorAll("details[open][id]"), (details) =>
+          details.id
+        )
+      );
+      current.replaceWith(fragment);
+      for (const detailsId of openDetails) {
+        viewport.querySelector(`#${CSS.escape(detailsId)}`)?.setAttribute(
+          "open",
+          ""
+        );
+      }
+      boardChanged ||= fragment.id === "board-state";
     }
-    if (nextUi) {
-      viewport.querySelector("#game-ui").replaceWith(nextUi);
-      syncCharacterPanel();
-    }
+    if (boardChanged) applyView();
+    syncCharacterPanel();
+    viewport
+      .querySelectorAll("form.game-action button:disabled")
+      .forEach((button) => {
+        button.disabled = false;
+      });
   }
 
   function syncCharacterPanel() {
