@@ -388,13 +388,13 @@
 
          member
          [:div
-          [:p "Share "
-           [:a {:href (str "/lobbies/" (:id lobby))
-                :target "_blank"
-                :rel "noopener"}
-            "this lobby link"]
-           " with the other players. Lobby code: "
-           [:strong (:id lobby)]]
+          [:p.lobby-sharing
+           [:button
+            {:type "button"
+             :data-copy-url (str "/lobbies/" (:id lobby))}
+            "Copy link"]
+           [:span "Lobby code: "
+            [:strong (:id lobby)]]]
           [:h2 "Lobby"]
           [:ul
            (for [player (:players lobby)]

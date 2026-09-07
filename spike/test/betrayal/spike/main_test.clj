@@ -145,7 +145,8 @@
                :players [{:token "host-token" :name "Alex"}]}
         host-html (#'main/render-lobby-state lobby "host-token" nil)
         guest-html (#'main/render-lobby-state lobby nil nil)]
-    (is (re-find #"href=\"/lobbies/ABCDEF\"" host-html))
+    (is (re-find #"data-copy-url=\"/lobbies/ABCDEF\"" host-html))
+    (is (re-find #">Copy link<" host-html))
     (is (re-find #"action=\"/lobbies/ABCDEF/players\"" guest-html))
     (is (re-find #"Your name" guest-html))))
 

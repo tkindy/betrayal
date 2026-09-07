@@ -4,6 +4,22 @@
     if (destination) location.assign(destination.dataset.gameUrl);
   });
 
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-copy-url]");
+    if (!button) return;
+    const originalLabel = button.textContent;
+    try {
+      const url = new URL(button.dataset.copyUrl, location.origin);
+      await navigator.clipboard.writeText(url.href);
+      button.textContent = "Copied!";
+    } catch (_error) {
+      button.textContent = "Copy failed";
+    }
+    setTimeout(() => {
+      button.textContent = originalLabel;
+    }, 1500);
+  });
+
   const CELL_SIZE = 180;
   const viewport = document.querySelector("#board-viewport");
   if (!viewport) return;

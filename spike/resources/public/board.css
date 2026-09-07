@@ -66,6 +66,16 @@ a {
   margin-top: 1rem;
 }
 
+.lobby-sharing {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+}
+
+.lobby-sharing button {
+  min-height: auto;
+}
+
 .game-header {
   align-items: center;
   background: #211d18;
