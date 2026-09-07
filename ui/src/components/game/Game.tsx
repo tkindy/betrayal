@@ -41,7 +41,7 @@ const Game: FC<{}> = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { x, y } = useAppSelector((state) => state.board.topLeft);
-  const [send, setSend] = useSend();
+  const [, setSend] = useSend();
   const name = useAppSelector((state) => state.lobby.name);
   const [searchParams] = useSearchParams();
 
