@@ -6,6 +6,7 @@ My Betrayal at House on the Hill companion app.
 
 - JDK 21
 - Node.js and npm
+- [Clojure CLI](https://clojure.org/guides/install_clojure)
 - [just](https://github.com/casey/just)
 - Docker, for local development and API tests
 
@@ -35,11 +36,12 @@ The launcher can also be run directly with `./bin/dev`.
 
 This command selects an installed JDK 21, starts or reuses the local PostgreSQL
 container, installs the UI dependencies, runs the database migrations, and
-starts both applications. Open http://localhost:3000. The API listens on
+starts both implementations. Open the original UI at http://localhost:3000 or
+the Clojure app at http://localhost:8081. The Kotlin API listens on
 http://localhost:8080.
 
-Press Ctrl-C to stop the API and UI. The PostgreSQL container remains running
-so its data is preserved for the next session.
+Press Ctrl-C to stop the API, UI, and Clojure app. The PostgreSQL container
+remains running so its data is preserved for the next session.
 
 ## Build
 

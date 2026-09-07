@@ -78,6 +78,7 @@ start_database() {
 
 api_pid=
 ui_pid=
+clojure_pid=
 
 cleanup() {
     status=$?
@@ -85,8 +86,10 @@ cleanup() {
 
     [ -z "$api_pid" ] || kill "$api_pid" 2>/dev/null || true
     [ -z "$ui_pid" ] || kill "$ui_pid" 2>/dev/null || true
+    [ -z "$clojure_pid" ] || kill "$clojure_pid" 2>/dev/null || true
     [ -z "$api_pid" ] || wait "$api_pid" 2>/dev/null || true
     [ -z "$ui_pid" ] || wait "$ui_pid" 2>/dev/null || true
+    [ -z "$clojure_pid" ] || wait "$clojure_pid" 2>/dev/null || true
 
     exit "$status"
 }
@@ -97,6 +100,11 @@ trap 'exit 143' TERM
 
 use_java_21
 echo "Using $(java -version 2>&1 | sed -n '1p')"
+
+if ! command -v clojure >/dev/null 2>&1; then
+    echo "Clojure CLI is required. Install it from https://clojure.org/guides/install_clojure." >&2
+    exit 1
+fi
 
 start_database
 
@@ -116,9 +124,15 @@ echo "Starting UI at http://localhost:3000..."
 (cd "$ROOT/ui" && exec npm start) &
 ui_pid=$!
 
-echo "Local development is running. Press Ctrl-C to stop both applications."
+echo "Starting Clojure app at http://localhost:8081..."
+(cd "$ROOT/spike" && exec clojure -M:run) &
+clojure_pid=$!
 
-while kill -0 "$api_pid" 2>/dev/null && kill -0 "$ui_pid" 2>/dev/null; do
+echo "Local development is running. Press Ctrl-C to stop all applications."
+
+while kill -0 "$api_pid" 2>/dev/null &&
+      kill -0 "$ui_pid" 2>/dev/null &&
+      kill -0 "$clojure_pid" 2>/dev/null; do
     sleep 1
 done
 

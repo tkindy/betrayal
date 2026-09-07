@@ -53,3 +53,37 @@ jobs:
           CI: true
       - name: Build
         run: npm run build
+
+  clojure:
+    name: Clojure
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: spike
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Set up Clojure
+        uses: DeLaGuardo/setup-clojure@13.6.1
+        with:
+          cli: 1.12.4.1618
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+            ~/.cache/clojure
+          key: ${{ runner.os }}-clojure-${{ hashFiles('spike/deps.edn') }}
+          restore-keys: |
+            ${{ runner.os }}-clojure-
+      - name: Test
+        run: clojure -M:test
+      - name: Build
+        run: clojure -T:build uber
