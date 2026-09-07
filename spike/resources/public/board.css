@@ -27,6 +27,45 @@ a {
   margin: 0.75rem 0;
 }
 
+.lobby-options {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  margin: 2rem 0;
+}
+
+.index section {
+  background: #211d18;
+  border: 1px solid #5f513b;
+  border-radius: 0.6rem;
+  padding: 1rem;
+}
+
+.index form,
+.index label {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.index form {
+  margin-top: 1rem;
+}
+
+.index input,
+.index button {
+  font: inherit;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.65rem;
+}
+
+.index button {
+  cursor: pointer;
+}
+
+.lobby #lobby-state {
+  margin-top: 1rem;
+}
+
 .game-header {
   align-items: center;
   background: #211d18;

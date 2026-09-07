@@ -1,4 +1,9 @@
 (() => {
+  document.addEventListener("htmx:after:swap", () => {
+    const destination = document.querySelector("[data-game-url]");
+    if (destination) location.assign(destination.dataset.gameUrl);
+  });
+
   const CELL_SIZE = 180;
   const viewport = document.querySelector("#board-viewport");
   if (!viewport) return;
@@ -6,10 +11,7 @@
   let view = { x: 0, y: 0, scale: 1 };
   let gesture = null;
   let initialized = false;
-  let socket;
-  let reconnectTimer;
   let viewedPlayerId;
-  const pendingCommands = new Map();
 
   const svg = () => viewport.querySelector("#board");
   const world = () => viewport.querySelector("#world");
@@ -17,74 +19,12 @@
   const playerDetails = () => viewport.querySelector("#player-details");
   let hideDetailsTimer;
 
-  function connect() {
-    const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-    const socketUrl = new URL(
-      `${protocol}//${location.host}/games/${viewport.dataset.gameId}/socket`
-    );
-    if (viewport.dataset.debugPlayerId) {
-      socketUrl.searchParams.set("player-id", viewport.dataset.debugPlayerId);
+  function submitHiddenForm(id, values) {
+    const form = viewport.querySelector(`#${id}`);
+    for (const [name, value] of Object.entries(values)) {
+      form.elements.namedItem(name).value = value;
     }
-    socket = new WebSocket(socketUrl);
-    socket.addEventListener("open", () => {
-      clearTimeout(reconnectTimer);
-    });
-    socket.addEventListener("message", (event) => {
-      const message = JSON.parse(event.data);
-      if (message.html) swapGameFragments(message.html);
-      if (message.type === "ack" || message.type === "error") {
-        completeCommand(message.id);
-      }
-    });
-    socket.addEventListener("close", () => {
-      for (const commandId of pendingCommands.keys()) {
-        completeCommand(commandId);
-      }
-      showClientError(
-        "Connection lost. Unconfirmed commands were not retried; reconnecting…"
-      );
-      reconnectTimer = setTimeout(connect, 1000);
-    });
-  }
-
-  function commandId() {
-    return (
-      globalThis.crypto?.randomUUID?.() ||
-      `${Date.now()}-${Math.random().toString(16).slice(2)}`
-    );
-  }
-
-  function showClientError(message) {
-    const error = viewport.querySelector("#action-error-region");
-    if (!error) return;
-    error.textContent = message;
-    error.hidden = false;
-  }
-
-  function completeCommand(id) {
-    const button = pendingCommands.get(id);
-    if (button) button.disabled = false;
-    pendingCommands.delete(id);
-  }
-
-  function sendCommand(command, button) {
-    if (socket?.readyState !== WebSocket.OPEN) {
-      if (button) button.disabled = false;
-      showClientError("Not connected. This action was not sent.");
-      return;
-    }
-
-    const id = commandId();
-    if (button) {
-      button.disabled = true;
-      pendingCommands.set(id, button);
-    }
-    try {
-      socket.send(JSON.stringify({ ...command, id }));
-    } catch (_error) {
-      completeCommand(id);
-      showClientError("This action could not be sent.");
-    }
+    form.requestSubmit();
   }
 
   function applyView() {
@@ -327,44 +267,12 @@
     }
 
     const { kind, id } = completed.element.dataset;
-    sendCommand({
-      command: "move",
+    submitHiddenForm("move-command", {
       kind,
       id,
       "grid-x": String(gridX),
       "grid-y": String(gridY),
     });
-  }
-
-  function swapGameFragments(html) {
-    const document = new DOMParser().parseFromString(html, "text/html");
-    const payload = document.querySelector("#game-fragments");
-    if (!payload) return;
-
-    const fragments = Array.from(payload.children).flatMap((element) =>
-      element.id === "ui-updates" ? Array.from(element.children) : [element]
-    );
-    let boardChanged = false;
-    for (const fragment of fragments) {
-      if (!fragment.id) continue;
-      const current = viewport.querySelector(`#${CSS.escape(fragment.id)}`);
-      if (!current) continue;
-      const openDetails = new Set(
-        Array.from(current.querySelectorAll("details[open][id]"), (details) =>
-          details.id
-        )
-      );
-      current.replaceWith(fragment);
-      for (const detailsId of openDetails) {
-        viewport.querySelector(`#${CSS.escape(detailsId)}`)?.setAttribute(
-          "open",
-          ""
-        );
-      }
-      boardChanged ||= fragment.id === "board-state";
-    }
-    if (boardChanged) applyView();
-    syncCharacterPanel();
   }
 
   function syncCharacterPanel() {
@@ -412,25 +320,10 @@
     syncCharacterPanel();
   }
 
-  function submitGameAction(event) {
-    const form = event.target.closest("form.game-action");
-    if (!form) return;
-    event.preventDefault();
-    if (form.dataset.confirm && !window.confirm(form.dataset.confirm)) return;
-    const button = event.submitter;
-    sendCommand({
-      command: "action",
-      action: form.dataset.action,
-      ...Object.fromEntries(new FormData(form)),
-    }, button);
-  }
-
   function placeRoom(event) {
     const spot = event.target.closest(".open-spot");
     if (!spot) return;
-    sendCommand({
-      command: "action",
-      action: "place-room",
+    submitHiddenForm("place-room-command", {
       "grid-x": spot.dataset.gridX,
       "grid-y": spot.dataset.gridY,
     });
@@ -459,7 +352,6 @@
   viewport.addEventListener("pointerleave", hideBoardDetails);
   viewport.addEventListener("pointerup", finishGesture);
   viewport.addEventListener("pointercancel", finishGesture);
-  viewport.addEventListener("submit", submitGameAction);
   viewport.addEventListener("toggle", enforceSingleOpenCard, true);
   viewport.addEventListener("change", selectViewedPlayer);
   viewport.addEventListener("click", closeInventoryCard);
@@ -479,7 +371,10 @@
   window.addEventListener("resize", () => {
     if (!initialized) fitBoard();
   });
+  document.addEventListener("htmx:after:swap", () => {
+    applyView();
+    syncCharacterPanel();
+  });
   syncCharacterPanel();
   fitBoard();
-  connect();
 })();

@@ -1,11 +1,12 @@
 (ns betrayal.spike.main
   (:gen-class)
   (:import [java.net InetAddress]
-           [java.security MessageDigest])
+           [java.security MessageDigest]
+           [java.util UUID])
   (:require [betrayal.spike.board :as board]
             [betrayal.spike.db :as db]
             [betrayal.spike.ui :as ui]
-            [clojure.data.json :as json]
+            [clojure.string :as str]
             [compojure.core :refer [GET POST defroutes]]
             [compojure.route :as route]
             [hiccup2.core :as h]
@@ -30,6 +31,8 @@
      [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
      [:title title]
      [:link {:rel "stylesheet" :href "/assets/board.css"}]
+     [:script {:src "/assets/vendor/htmx-4.0.0/htmx.min.js" :defer true}]
+     [:script {:src "/assets/vendor/htmx-4.0.0/hx-sse.min.js" :defer true}]
      [:script {:src "/assets/board.js" :defer true}]]
     (into [:body] body))))
 
@@ -49,21 +52,39 @@
      [:input {:type "hidden" :name "player-id" :value (:id player)}]
      [:button {:type "submit"} (:name player)]]))
 
+(defn- existing-games [request]
+  [:section
+   [:h2 "Resume an existing game"]
+   [:ul
+    (for [{:keys [id name players]} (db/games @ds)]
+      [:li
+       [:strong name " (" id ")"]
+       (if (seq players)
+         [:ul
+          (for [player players]
+            [:li (player-link request id player)])]
+         [:p [:i "No players"]])])]])
+
 (defn- index-page [request]
   (page
-   "Betrayal board spike"
+   "Betrayal at House on the Hill"
    [:main.index
-    [:h1 "Betrayal board spike"]
-    [:p "Choose who to play as in an existing game."]
-    [:ul
-     (for [{:keys [id name players]} (db/games @ds)]
-       [:li
-        [:strong name " (" id ")"]
-        (if (seq players)
-          [:ul
-           (for [player players]
-             [:li (player-link request id player)])]
-          [:p [:i "No players"]])])]]))
+    [:h1 "Betrayal at House on the Hill"]
+    [:div.lobby-options
+     [:section
+      [:h2 "New game"]
+      [:form {:method "post" :action "/lobbies"}
+       [:label "Game name" [:input {:name "game-name" :maxlength 32 :required true}]]
+       [:label "Your name" [:input {:name "player-name" :maxlength 20 :required true}]]
+       [:button {:type "submit"} "Create lobby"]]]
+     [:section
+      [:h2 "Join a lobby"]
+      [:form {:method "get" :action "/lobbies/join"}
+       [:label "Lobby code"
+        [:input {:name "lobby-id" :maxlength 6 :pattern "[A-Za-z]{6}"
+                 :required true :autocapitalize "characters"}]]
+       [:button {:type "submit"} "Join lobby"]]]]
+    (existing-games request)]))
 
 (defn- debug-player-id [request game-id]
   (when (local-request? request)
@@ -87,16 +108,35 @@
           player-id (or debug-player-id
                         (session-player-id request game-id))]
       (page
-       (str (:name game) " — board spike")
+       (str (:name game) " — Betrayal")
        [:header.game-header
         [:a {:href "/"} "‹ Games"]
         [:strong (:name game)]
         [:span "SVG + server-rendered fragments"]]
        [:main#board-viewport
-        (cond-> {:data-game-id game-id}
+        (cond-> {:data-game-id game-id
+                 :hx-sse:connect
+                 (str "/games/" game-id "/events"
+                      (when debug-player-id
+                        (str "?player-id=" debug-player-id)))
+                 :hx-swap "none"}
           debug-player-id (assoc :data-debug-player-id debug-player-id))
-        (h/raw (board/render-board state))
-        (h/raw (ui/render-ui game-id state player-id nil))]))
+        (h/raw (board/render-board state game-id nil))
+        (h/raw (ui/render-ui game-id state player-id nil))
+        [:form#move-command
+         {:hidden true
+          :hx-post (str "/games/" game-id "/moves")
+          :hx-swap "none"}
+         [:input {:name "kind"}]
+         [:input {:name "id"}]
+         [:input {:name "grid-x"}]
+         [:input {:name "grid-y"}]]
+        [:form#place-room-command
+         {:hidden true
+          :hx-post (str "/games/" game-id "/actions/place-room")
+          :hx-swap "none"}
+         [:input {:name "grid-x"}]
+         [:input {:name "grid-y"}]]]))
     nil))
 
 (defn- parse-int [value label]
@@ -107,10 +147,11 @@
   [game-id state player-id error regions]
   (str
    (h/html
-    [:div#game-fragments
+    [:div
      (when (or (contains? regions :all)
                (contains? regions :board))
-       (h/raw (board/render-board state)))
+       [:hx-partial {:hx-target "#board-state" :hx-swap "outerHTML"}
+        (h/raw (board/render-board state game-id nil))])
      (h/raw (ui/render-updates
              game-id state player-id error regions))])))
 
@@ -228,61 +269,24 @@
               (parse-int grid-y "Grid Y"))
     #{:board}))
 
-(defonce ^:private clients (atom {}))
+(defonce ^:private game-streams (atom {}))
 
-(defn- send-message! [channel message]
-  (send! channel (json/write-str message)))
-
-(defn- send-state! [channel message-type error regions command-id]
-  (when-let [{:keys [game-id player-id]} (get @clients channel)]
-    (send-message!
-     channel
-     (cond-> {:type message-type
-              :html (render-fragments game-id player-id error regions)}
-       command-id (assoc :id command-id)
-       error (assoc :message error)))))
+(defn- sse-message [html]
+  (str (str/join "\n" (map #(str "data: " %) (str/split-lines html)))
+       "\n\n"))
 
 (defn- broadcast-state! [game-id regions]
   (let [state (db/game-state @ds game-id)]
-    (doseq [[channel client] @clients
+    (doseq [[channel client] @game-streams
             :when (= game-id (:game-id client))]
       (send! channel
-             (json/write-str
-              {:type "update"
-               :html
-               (render-fragments-from-state
-                game-id state (:player-id client) nil
-                (conj regions :error))})))))
+             (sse-message
+              (render-fragments-from-state
+               game-id state (:player-id client) nil
+               (conj regions :error)))
+             false))))
 
-(defn- receive-command! [channel message]
-  (let [command-id (atom nil)]
-    (try
-      (let [{:keys [id command action] :as params}
-            (json/read-str message :key-fn keyword)
-            {:keys [game-id player-id]} (get @clients channel)]
-        (reset! command-id id)
-        (when-not (and (string? id) (<= 1 (count id) 100))
-          (throw (ex-info "Every command must have an ID" {})))
-        (let [regions
-              (case command
-                "move"
-                (run-move! game-id params)
-
-                "action"
-                (run-action! game-id player-id action params)
-
-                (throw (ex-info "Unknown WebSocket command" {})))]
-          (broadcast-state! game-id regions)
-          (send-message! channel {:type "ack" :id id})))
-      (catch Exception exception
-        (send-state! channel
-                     "error"
-                     (or (ex-message exception)
-                         "That command could not be completed")
-                     #{:all}
-                     @command-id)))))
-
-(defn- game-websocket [request game-id]
+(defn- game-events [request game-id]
   (if-not (db/game @ds game-id)
     (response/not-found "Game not found")
     (let [player-id (request-player-id request game-id)]
@@ -290,15 +294,259 @@
        request
        {:on-open
         (fn [channel]
-          (swap! clients assoc channel {:game-id game-id
-                                        :player-id player-id})
-          (send-state! channel "state" nil #{:all} nil))
-        :on-receive
-        (fn [channel message]
-          (receive-command! channel message))
+          (swap! game-streams assoc channel {:game-id game-id
+                                             :player-id player-id})
+          (send! channel
+                 {:status 200
+                  :headers {"Content-Type" "text/event-stream"
+                            "Cache-Control" "no-cache"
+                            "X-Accel-Buffering" "no"}}
+                 false)
+          (send! channel
+                 (sse-message
+                  (render-fragments game-id player-id nil #{:all}))
+                 false))
         :on-close
         (fn [channel _]
-          (swap! clients dissoc channel))}))))
+          (swap! game-streams dissoc channel))}))))
+
+(defn- command-response [request game-id command]
+  (let [player-id (request-player-id request game-id)]
+    (try
+      (let [regions
+            (case command
+              :move (run-move! game-id (:params request))
+              (run-action! game-id player-id (name command) (:params request)))]
+        (broadcast-state! game-id regions)
+        {:status 204})
+      (catch Exception exception
+        (-> (response/response
+             (render-fragments
+              game-id player-id
+              (or (ex-message exception) "That action could not be completed")
+              #{:error}))
+            (response/content-type "text/html"))))))
+
+(defonce ^:private lobbies (atom {}))
+(defonce ^:private lobby-streams (atom {}))
+
+(def ^:private game-definitions
+  (delay
+    {:characters (vals @board/character-definitions)
+     :room-ids (remove #{0 1 2 8 10 33} (keys @board/room-definitions))
+     :card-ids
+     {0 (map (comp parse-long :id) (board/read-definitions "events.csv"))
+      1 (map (comp parse-long :id) (board/read-definitions "items.csv"))
+      2 (map (comp parse-long :id) (board/read-definitions "omens.csv"))}}))
+
+(defn- valid-name [value label max-length]
+  (let [value (str/trim (or value ""))]
+    (when (or (str/blank? value) (> (count value) max-length))
+      (throw (ex-info (format "%s must be between 1 and %d characters"
+                              label max-length)
+                      {})))
+    value))
+
+(defn- next-lobby-id []
+  (loop []
+    (let [id (apply str (repeatedly 6 #(char (+ (int \A) (rand-int 26)))))]
+      (if (or (contains? @lobbies id) (db/game @ds id))
+        (recur)
+        id))))
+
+(defn- lobby-token [request lobby-id]
+  (get-in request [:session :lobby-ids lobby-id]))
+
+(defn- lobby-member [lobby token]
+  (some #(when (= token (:token %)) %) (:players lobby)))
+
+(defn- render-lobby-state [lobby token]
+  (let [member (lobby-member lobby token)
+        host? (= token (:host-token lobby))]
+    (str
+     (h/html
+      [:section#lobby-state
+       [:div#action-error-region.action-error {:hidden true}]
+       (cond
+         (:started? lobby)
+         [:div {:data-game-url (str "/lobbies/" (:id lobby) "/enter")}
+          [:p "Game started. Joining…"]]
+
+         member
+         [:div
+          [:p "Share lobby code " [:strong (:id lobby)] " with the other players."]
+          [:h2 (:game-name lobby)]
+          [:ul
+           (for [player (:players lobby)]
+             [:li (:name player)])]
+          (when host?
+            [:form {:method "post"
+                    :action (str "/lobbies/" (:id lobby) "/start")
+                    :hx-post (str "/lobbies/" (:id lobby) "/start")
+                    :hx-swap "none"
+                    :hx-disable "find button"}
+             [:button {:type "submit"
+                       :disabled (> (count (:players lobby)) 6)}
+              "Start game"]])]
+
+         :else
+         [:div
+          [:h2 (str "Join " (:game-name lobby))]
+          [:form {:method "post"
+                  :action (str "/lobbies/" (:id lobby) "/players")}
+           [:label "Your name"
+            [:input {:name "player-name" :maxlength 20 :required true}]]
+           [:button {:type "submit"} "Join lobby"]]])]))))
+
+(defn- lobby-page [request lobby-id]
+  (when-let [lobby (get @lobbies lobby-id)]
+    (page
+     (str (:game-name lobby) " — Lobby")
+     [:main.index.lobby
+      [:a {:href "/"} "‹ Home"]
+      [:h1 "Game lobby"]
+      [:div {:hx-sse:connect (str "/lobbies/" lobby-id "/events")
+             :hx-swap "none"}
+       (h/raw (render-lobby-state
+               lobby (lobby-token request lobby-id)))]])))
+
+(defn- broadcast-lobby! [lobby-id]
+  (when-let [lobby (get @lobbies lobby-id)]
+    (doseq [[channel client] @lobby-streams
+            :when (= lobby-id (:lobby-id client))]
+      (send! channel
+             (sse-message (str
+                           (h/html
+                            [:hx-partial
+                             {:hx-target "#lobby-state" :hx-swap "outerHTML"}
+                             (h/raw (render-lobby-state lobby (:token client)))])))
+             false))))
+
+(defn- create-lobby [request]
+  (try
+    (let [game-name (valid-name (get-in request [:params :game-name])
+                                "Game name" 32)
+          player-name (valid-name (get-in request [:params :player-name])
+                                  "Player name" 20)
+          lobby-id (next-lobby-id)
+          token (str (UUID/randomUUID))
+          player {:token token :name player-name}
+          lobby {:id lobby-id
+                 :game-name game-name
+                 :host-token token
+                 :players [player]}]
+      (swap! lobbies assoc lobby-id lobby)
+      (-> (response/redirect (str "/lobbies/" lobby-id))
+          (assoc :status 303)
+          (assoc :session
+                 (assoc-in (:session request) [:lobby-ids lobby-id] token))))
+    (catch Exception exception
+      (-> (response/response (ex-message exception))
+          (response/status 422)))))
+
+(defn- find-lobby [lobby-id]
+  (let [lobby-id (str/upper-case (or lobby-id ""))]
+    (if (re-matches #"[A-Z]{6}" lobby-id)
+      (response/redirect (str "/lobbies/" lobby-id))
+      (-> (response/response "Lobby code must contain six letters")
+          (response/status 422)))))
+
+(defn- join-lobby [request lobby-id]
+  (try
+    (let [player-name (valid-name (get-in request [:params :player-name])
+                                  "Player name" 20)
+          token (str (UUID/randomUUID))
+          joined? (atom false)]
+      (swap! lobbies
+             update lobby-id
+             (fn [lobby]
+               (when-not lobby
+                 (throw (ex-info "Lobby not found" {})))
+               (when (:started? lobby)
+                 (throw (ex-info "That game has already started" {})))
+               (when (some #(= (str/lower-case player-name)
+                               (str/lower-case (:name %)))
+                           (:players lobby))
+                 (throw (ex-info "That name is already in use" {})))
+               (when (>= (count (:players lobby)) 6)
+                 (throw (ex-info "A game can have at most 6 players" {})))
+               (reset! joined? true)
+               (update lobby :players conj {:token token :name player-name})))
+      (when @joined? (broadcast-lobby! lobby-id))
+      (-> (response/redirect (str "/lobbies/" lobby-id))
+          (assoc :status 303)
+          (assoc :session
+                 (assoc-in (:session request) [:lobby-ids lobby-id] token))))
+    (catch Exception exception
+      (-> (response/response (ex-message exception))
+          (response/status 422)))))
+
+(defn- start-game [request lobby-id]
+  (try
+    (let [token (lobby-token request lobby-id)
+          lobby (get @lobbies lobby-id)]
+      (when-not lobby
+        (throw (ex-info "Lobby not found" {})))
+      (when-not (= token (:host-token lobby))
+        (throw (ex-info "Only the host can start this game" {})))
+      (when-not (<= 1 (count (:players lobby)) 6)
+        (throw (ex-info "A game must have between 1 and 6 players" {})))
+      (let [player-ids
+            (db/create-game! @ds lobby-id (:game-name lobby)
+                             (:players lobby) @game-definitions)]
+        (swap! lobbies assoc lobby-id
+               (assoc lobby :started? true :player-ids player-ids))
+        (broadcast-lobby! lobby-id)
+        {:status 204
+         :headers {"HX-Redirect" (str "/lobbies/" lobby-id "/enter")}}))
+    (catch Exception exception
+      (-> (response/response
+           (str (h/html
+                 [:hx-partial
+                  {:hx-target "#action-error-region" :hx-swap "outerHTML"}
+                  [:div#action-error-region.action-error
+                   (or (ex-message exception) "The game could not be started")]])))
+          (response/content-type "text/html")))))
+
+(defn- enter-game [request lobby-id]
+  (let [token (lobby-token request lobby-id)
+        lobby (get @lobbies lobby-id)
+        player-id (get-in lobby [:player-ids token])]
+    (if-not player-id
+      (response/not-found "Your player is not part of this game")
+      (-> (response/redirect (str "/games/" lobby-id))
+          (assoc :status 303)
+          (assoc :session
+                 (assoc-in (:session request)
+                           [:player-ids lobby-id]
+                           player-id))))))
+
+(defn- lobby-events [request lobby-id]
+  (if-let [lobby (get @lobbies lobby-id)]
+    (let [token (lobby-token request lobby-id)]
+      (as-channel
+       request
+       {:on-open
+        (fn [channel]
+          (swap! lobby-streams assoc channel {:lobby-id lobby-id :token token})
+          (send! channel
+                 {:status 200
+                  :headers {"Content-Type" "text/event-stream"
+                            "Cache-Control" "no-cache"
+                            "X-Accel-Buffering" "no"}}
+                 false)
+          (send! channel
+                 (sse-message
+                  (str
+                   (h/html
+                    [:hx-partial
+                     {:hx-target "#lobby-state" :hx-swap "outerHTML"}
+                     (h/raw (render-lobby-state lobby token))])))
+                 false))
+        :on-close
+        (fn [channel _]
+          (swap! lobby-streams dissoc channel))}))
+    (response/not-found "Lobby not found")))
 
 (defn- select-player [request game-id]
   (let [player-id (parse-int (get-in request [:params :player-id]) "Player ID")]
@@ -316,14 +564,32 @@
   (GET "/up" [] (response/response "OK"))
   (GET "/" request (-> (response/response (index-page request))
                        (response/content-type "text/html")))
+  (POST "/lobbies" request (create-lobby request))
+  (GET "/lobbies/join" [lobby-id] (find-lobby lobby-id))
+  (GET "/lobbies/:lobby-id" [lobby-id :as request]
+    (if-let [body (lobby-page request lobby-id)]
+      (-> (response/response body) (response/content-type "text/html"))
+      (response/not-found "Lobby not found")))
+  (POST "/lobbies/:lobby-id/players" [lobby-id :as request]
+    (join-lobby request lobby-id))
+  (POST "/lobbies/:lobby-id/start" [lobby-id :as request]
+    (start-game request lobby-id))
+  (GET "/lobbies/:lobby-id/enter" [lobby-id :as request]
+    (enter-game request lobby-id))
+  (GET "/lobbies/:lobby-id/events" [lobby-id :as request]
+    (lobby-events request lobby-id))
   (GET "/games/:game-id" [game-id :as request]
     (if-let [body (board-page request game-id)]
       (-> (response/response body) (response/content-type "text/html"))
       (response/not-found "Game not found")))
   (POST "/games/:game-id/player" [game-id :as request]
     (select-player request game-id))
-  (GET "/games/:game-id/socket" [game-id :as request]
-    (game-websocket request game-id))
+  (GET "/games/:game-id/events" [game-id :as request]
+    (game-events request game-id))
+  (POST "/games/:game-id/moves" [game-id :as request]
+    (command-response request game-id :move))
+  (POST "/games/:game-id/actions/:action" [game-id action :as request]
+    (command-response request game-id (keyword action)))
   (route/resources "/assets" {:root "public"})
   (route/not-found "Not found"))
 
@@ -354,5 +620,5 @@
   (let [port (parse-long (or (System/getenv "PORT") "8081"))]
     ;; Force configuration errors to appear before the server starts.
     @ds
-    (println (str "Board spike running at http://localhost:" port))
+    (println (str "Betrayal running at http://localhost:" port))
     (run-server #'app {:port port})))

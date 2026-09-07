@@ -60,13 +60,20 @@
                     type
                     drawn)))))
 
-(defn- action-form [_game-id _player-id action attributes & children]
-  (into
-   [:form.game-action
-    (merge {:action "#"
-            :data-action action}
-           attributes)]
-   children))
+(defn- action-form [game-id player-id action attributes & children]
+  (let [action-url
+        (str "/games/" game-id "/actions/" action
+             (when player-id (str "?player-id=" player-id)))]
+    (into
+     [:form.game-action
+      (merge {:action action-url
+            :method "post"
+            :data-action action
+            :hx-post action-url
+            :hx-swap "none"
+            :hx-disable "find button"}
+             attributes)]
+     children)))
 
 (defn- render-die [value]
   [:span.die {:aria-label (str value)} (case value 0 "" 1 "●" 2 "● ●")])
@@ -233,6 +240,7 @@
   [:details.inventory-card
    {:id (str "inventory-card-" (:id card))
     :name "inventory-card"
+    :hx-preserve true
     :class (name (:key card))}
    [:summary (:name card)]
    [:div.inventory-popover
@@ -318,24 +326,33 @@
 (defn render-updates [game-id state player-id error regions]
   (let [{:keys [players drawn-card] :as state} (prepare-state state)
         player-id (when (some #(= player-id (:id %)) players) player-id)
-        include? #(or (contains? regions :all) (contains? regions %))]
+        include? #(or (contains? regions :all) (contains? regions %))
+        partial
+        (fn [target content]
+          (when content
+            [:hx-partial {:hx-target target :hx-swap "outerHTML"}
+             content]))]
     (str
      (h/html
-      [:div#ui-updates
+      [:div
        (when (include? :error)
-         (error-region error))
+         (partial "#action-error-region" (error-region error)))
        (when (include? :dice)
-         (dice-panel game-id player-id state))
+         (partial "#dice-panel" (dice-panel game-id player-id state)))
        (when (include? :room-stack)
-         (room-stack-panel game-id player-id (:room-stack state)))
+         (partial "#room-stack-panel"
+                  (room-stack-panel game-id player-id (:room-stack state))))
        (when (include? :drawn-card)
-         (drawn-card-overlay game-id player-id players drawn-card))
+         (partial "#drawn-card-region"
+                  (drawn-card-overlay game-id player-id players drawn-card)))
        (for [player players
              :when (include? [:traits (:id player)])]
-         (traits-panel game-id player-id player))
+         (partial (str "#player-" (:id player) "-traits")
+                  (traits-panel game-id player-id player)))
        (for [player players
              :when (include? [:inventory (:id player)])]
-         (inventory-panel game-id player-id players player))]))))
+         (partial (str "#player-" (:id player) "-inventory")
+                  (inventory-panel game-id player-id players player)))]))))
 
 (defn render-ui
   ([game-id state] (render-ui game-id state nil nil))

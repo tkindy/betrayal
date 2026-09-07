@@ -81,6 +81,8 @@
                               {:id 8 :name "Blair"}]}])}
     (fn []
       (let [html (#'main/index-page {:remote-addr "127.0.0.1"})]
+        (is (re-find #"/assets/vendor/htmx-4\.0\.0/htmx\.min\.js" html))
+        (is (re-find #"/assets/vendor/htmx-4\.0\.0/hx-sse\.min\.js" html))
         (is (re-find #"/games/GAME\?player-id=7" html))
         (is (re-find #"/games/GAME\?player-id=8" html))
         (is (re-find #">Alex<" html))
@@ -112,43 +114,110 @@
         (is (= "value" (get-in response [:session :unrelated])))
         (is (= 8 (get-in response [:session :player-ids "GAME"])))))))
 
-(deftest websocket-commands-receive-exact-acknowledgements
-  (let [channel ::channel
-        sent (atom [])
-        clients (atom {channel {:game-id "GAME" :player-id 7}})]
+(deftest creates-a-lobby-and-binds-the-host-session
+  (let [lobbies (atom {})]
     (with-redefs-fn
-      {#'main/clients clients
-       #'main/run-action! (fn [game-id player-id action params]
-                            (is (= ["GAME" 7 "roll" "command-123"]
-                                   [game-id player-id action (:id params)]))
-                            #{:dice})
-       #'main/broadcast-state! (fn [game-id regions]
-                                (is (= ["GAME" #{:dice}]
-                                       [game-id regions])))
-       #'main/send-message! (fn [actual-channel message]
-                              (swap! sent conj [actual-channel message]))}
+      {#'main/lobbies lobbies
+       #'main/next-lobby-id (constantly "ABCDEF")}
       (fn []
-        (#'main/receive-command!
-         channel
-         "{\"id\":\"command-123\",\"command\":\"action\",\"action\":\"roll\"}")
-        (is (= [[channel {:type "ack" :id "command-123"}]]
-               @sent))))))
+        (let [response (#'main/create-lobby
+                        {:params {:game-name "Friday night"
+                                  :player-name "Alex"}
+                         :session {}})
+              token (get-in response [:session :lobby-ids "ABCDEF"])]
+          (is (= 303 (:status response)))
+          (is (= "/lobbies/ABCDEF" (get-in response [:headers "Location"])))
+          (is (string? token))
+          (is (= {:id "ABCDEF"
+                  :game-name "Friday night"
+                  :host-token token
+                  :players [{:token token :name "Alex"}]}
+                 (get @lobbies "ABCDEF"))))))))
 
-(deftest websocket-errors-retain-the-command-id
-  (let [channel ::channel
-        errors (atom [])
-        clients (atom {channel {:game-id "GAME" :player-id 7}})]
+(deftest normalizes-and-validates-lobby-codes
+  (is (= "/lobbies/ABCDEF"
+         (get-in (#'main/find-lobby "abcdef") [:headers "Location"])))
+  (is (= 422 (:status (#'main/find-lobby "not a code")))))
+
+(deftest starts-a-game-and-preserves-lobby-player-bindings
+  (let [host-token "host-token"
+        guest-token "guest-token"
+        lobby {:id "ABCDEF"
+               :game-name "Friday night"
+               :host-token host-token
+               :players [{:token host-token :name "Alex"}
+                         {:token guest-token :name "Blair"}]}
+        lobbies (atom {"ABCDEF" lobby})]
     (with-redefs-fn
-      {#'main/clients clients
-       #'main/run-action! (fn [& _]
-                            (throw (ex-info "No dice for you" {})))
-       #'main/send-state! (fn [& args] (swap! errors conj args))}
+      {#'main/ds (delay :test-datasource)
+       #'main/lobbies lobbies
+       #'main/game-definitions (delay :definitions)
+       #'main/broadcast-lobby! (fn [lobby-id] (is (= "ABCDEF" lobby-id)))
+       #'db/create-game! (fn [datasource game-id game-name players definitions]
+                           (is (= [:test-datasource "ABCDEF" "Friday night"
+                                   (:players lobby) :definitions]
+                                  [datasource game-id game-name players definitions]))
+                           {host-token 7 guest-token 8})}
       (fn []
-        (#'main/receive-command!
-         channel
-         "{\"id\":\"command-456\",\"command\":\"action\",\"action\":\"roll\"}")
-        (is (= [[channel "error" "No dice for you" #{:all} "command-456"]]
-               @errors))))))
+        (let [response (#'main/start-game
+                        {:session {:lobby-ids {"ABCDEF" host-token}}}
+                        "ABCDEF")]
+          (is (= 204 (:status response)))
+          (is (= "/lobbies/ABCDEF/enter"
+                 (get-in response [:headers "HX-Redirect"])))
+          (is (= {host-token 7 guest-token 8}
+                 (get-in @lobbies ["ABCDEF" :player-ids])))
+          (is (true? (get-in @lobbies ["ABCDEF" :started?]))))))))
+
+(deftest entering-a-started-game-promotes-the-session-binding
+  (let [lobbies
+        (atom {"ABCDEF"
+               {:id "ABCDEF"
+                :started? true
+                :player-ids {"guest-token" 8}}})]
+    (with-redefs-fn
+      {#'main/lobbies lobbies}
+      (fn []
+        (let [response (#'main/enter-game
+                        {:session {:lobby-ids {"ABCDEF" "guest-token"}}}
+                        "ABCDEF")]
+          (is (= 303 (:status response)))
+          (is (= "/games/ABCDEF" (get-in response [:headers "Location"])))
+          (is (= 8 (get-in response [:session :player-ids "ABCDEF"]))))))))
+
+(deftest formats-html-as-an-sse-data-message
+  (is (= "data: <div>\ndata: updated\ndata: </div>\n\n"
+         (#'main/sse-message "<div>\nupdated\n</div>"))))
+
+(deftest http-commands-acknowledge-and-broadcast-authoritative-fragments
+  (with-redefs-fn
+    {#'main/request-player-id (fn [_ _] 7)
+     #'main/run-action! (fn [game-id player-id action params]
+                          (is (= ["GAME" 7 "roll" "8"]
+                                 [game-id player-id action (:num-dice params)]))
+                          #{:dice})
+     #'main/broadcast-state! (fn [game-id regions]
+                              (is (= ["GAME" #{:dice}]
+                                     [game-id regions])))}
+    (fn []
+      (let [response (#'main/command-response
+                      {:params {:num-dice "8"}} "GAME" :roll)]
+        (is (= 204 (:status response)))
+        (is (nil? (:body response)))))))
+
+(deftest http-command-errors-return-an-error-fragment
+  (with-redefs-fn
+    {#'main/request-player-id (fn [_ _] 7)
+     #'main/run-action! (fn [& _]
+                          (throw (ex-info "No dice for you" {})))
+     #'main/render-fragments (fn [game-id player-id error regions]
+                              (is (= ["GAME" 7 "No dice for you" #{:error}]
+                                     [game-id player-id error regions]))
+                              "<hx-partial>error</hx-partial>")}
+    (fn []
+      (let [response (#'main/command-response {:params {}} "GAME" :roll)]
+        (is (= 200 (:status response)))
+        (is (= "<hx-partial>error</hx-partial>" (:body response)))))))
 
 (deftest trait-actions-only-invalidate-that-players-traits
   (with-redefs-fn

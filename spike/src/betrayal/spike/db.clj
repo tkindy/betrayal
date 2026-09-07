@@ -46,6 +46,99 @@
      game-id player-id]
     options)))
 
+(defn player-by-name [ds game-id player-name]
+  (jdbc/execute-one!
+   ds
+   ["select id, name from players where \"gameId\" = ? and name = ?"
+    game-id player-name]
+   options))
+
+(def ^:private starting-rooms
+  [[0 4 3]
+   [1 3 3]
+   [2 2 3]
+   [8 -8 -8]
+   [10 10 -8]
+   [33 2 12]])
+
+(defn- starting-index [trait]
+  (or (first
+       (keep-indexed
+        (fn [index value]
+          (when (str/ends-with? value "*") index))
+        (str/split trait #",")))
+      (throw (ex-info "Character trait has no starting value" {}))))
+
+(defn- insert-stack! [tx stack-table content-table game-id type-id definition-ids]
+  (let [stack
+        (jdbc/execute-one!
+         tx
+         (if (some? type-id)
+           [(str "insert into \"" stack-table "\""
+                 " (\"gameId\", \"curIndex\", \"cardTypeId\")"
+                 " values (?, 0, ?) returning id")
+            game-id type-id]
+           [(str "insert into \"" stack-table "\""
+                 " (\"gameId\", \"curIndex\", flipped)"
+                 " values (?, 0, false) returning id")
+            game-id])
+         options)]
+    (doseq [[index definition-id] (map-indexed vector (shuffle definition-ids))]
+      (jdbc/execute-one!
+       tx
+       [(str "insert into \"" content-table "\""
+             " (\"stackId\", index, \"" (if type-id "cardDefId" "roomDefId") "\")"
+             " values (?, ?, ?)")
+        (:id stack) index definition-id]))))
+
+(defn create-game!
+  [ds game-id game-name lobby-players
+   {:keys [characters room-ids card-ids]}]
+  (jdbc/with-transaction [tx ds]
+    (jdbc/execute-one!
+     tx ["insert into games (id, name) values (?, ?)" game-id game-name])
+    (doseq [[room-id grid-x grid-y] starting-rooms]
+      (jdbc/execute-one!
+       tx
+       [(str "insert into rooms"
+             " (\"gameId\", \"roomDefId\", \"gridX\", \"gridY\", rotation)"
+             " values (?, ?, ?, ?, 0)")
+        game-id room-id grid-x grid-y]))
+    (let [characters
+          (->> characters
+               (group-by :color)
+               vals
+               (map rand-nth)
+               shuffle
+               (take (count lobby-players)))
+          player-ids
+          (into {}
+                (for [[lobby-player character]
+                      (map vector (shuffle lobby-players) characters)
+                      :let [player
+                            (jdbc/execute-one!
+                             tx
+                             [(str "insert into players"
+                                   " (\"gameId\", name, \"characterId\","
+                                   " \"gridX\", \"gridY\", \"speedIndex\","
+                                   " \"mightIndex\", \"sanityIndex\", \"knowledgeIndex\")"
+                                   " values (?, ?, ?, 4, 3, ?, ?, ?, ?) returning id")
+                              game-id
+                              (:name lobby-player)
+                              (parse-long (:id character))
+                              (starting-index (:speed character))
+                              (starting-index (:might character))
+                              (starting-index (:sanity character))
+                              (starting-index (:knowledge character))]
+                             options)]]
+                  [(:token lobby-player) (:id player)]))]
+      (insert-stack! tx "roomStacks" "roomStackContents"
+                     game-id nil room-ids)
+      (doseq [[card-type definition-ids] card-ids]
+        (insert-stack! tx "cardStacks" "cardStackContents"
+                       game-id card-type definition-ids))
+      player-ids)))
+
 (defn board [connectable game-id]
   {:rooms
    (jdbc/execute!

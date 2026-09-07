@@ -178,8 +178,9 @@
    [:title (str "Monster " (:number monster) " — drag to another room")]])
 
 (defn render-board
-  ([board] (render-board board nil))
-  ([board error]
+  ([board] (render-board board nil nil))
+  ([board error] (render-board board nil error))
+  ([board game-id error]
    (let [board (enrich-board board)
          players (grouped (:players board))
          monsters (grouped (:monsters board))
@@ -244,13 +245,23 @@
           [:summary {:aria-label "Room actions"} "⋯"]
           [:div.room-details-actions
            [:form.game-action
-            {:action "#" :data-action "rotate-room"}
+            {:action (str "/games/" game-id "/actions/rotate-room")
+             :method "post"
+             :data-action "rotate-room"
+             :hx-post (str "/games/" game-id "/actions/rotate-room")
+             :hx-swap "none"
+             :hx-disable "find button"}
             [:input.room-details-id
              {:type "hidden" :name "room-id"}]
             [:button {:type "submit"} "Rotate"]]
            [:form.game-action
-            {:action "#" :data-action "return-room"
-             :data-confirm "Return this room to the stack?"}
+            {:action (str "/games/" game-id "/actions/return-room")
+             :method "post"
+             :data-action "return-room"
+             :hx-post (str "/games/" game-id "/actions/return-room")
+             :hx-swap "none"
+             :hx-disable "find button"
+             :hx-confirm "Return this room to the stack?"}
             [:input.room-details-id
              {:type "hidden" :name "room-id"}]
             [:button.danger {:type "submit"} "Return to stack"]]]]]
