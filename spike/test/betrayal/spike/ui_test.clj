@@ -61,6 +61,8 @@
     (is (re-find #"room-picker-preview flipped" html))
     (is (re-find #"class=\"room\"" html))
     (is (re-find #">Nursery<" html))
+    (is (re-find #"aria-label=\"Flipped room: Nursery — additional rules\"" html))
+    (is (re-find #"class=\"room-rules-icon\"" html))
     (is (re-find #"class=\"door\"" html))))
 
 (deftest renders-acting-player-actions

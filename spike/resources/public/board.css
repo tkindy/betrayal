@@ -288,6 +288,25 @@ a {
   font-size: 14px;
 }
 
+.room-rules-icon {
+  pointer-events: none;
+}
+
+.room-rules-icon circle {
+  fill: #493d2c;
+  stroke: #f3e7ca;
+  stroke-width: 2;
+}
+
+.room-rules-icon text {
+  fill: #f3e7ca;
+  font-family: Georgia, serif;
+  font-size: 18px;
+  font-style: italic;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
 .token {
   cursor: move;
   filter: drop-shadow(0 2px 2px rgb(0 0 0 / 55%));

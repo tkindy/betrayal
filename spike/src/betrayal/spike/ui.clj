@@ -185,7 +185,9 @@
        [:div
         [:svg.room-picker-preview.flipped
          {:viewBox (str "0 0 " board/cell-size " " board/cell-size)
-          :aria-label (str "Flipped room: " (:name definition))}
+          :aria-label (str "Flipped room: " (:name definition)
+                           (when (board/additional-rules? definition)
+                             " — additional rules"))}
          (board/room-tile room-data)]
         [:p.room-placement-help "Choose a highlighted space on the board."]
         (action-form game-id player-id "rotate-room-stack" {}

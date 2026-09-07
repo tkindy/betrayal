@@ -65,6 +65,19 @@
     (testing "Hiccup escapes database content"
       (is (re-find #"Player &lt;one&gt;" html)))))
 
+(deftest indicates-placed-rooms-with-additional-rules
+  (let [html (board/render-board
+              {:rooms [{:id 1 :room_def_id 3
+                        :grid_x 0 :grid_y 0 :rotation 0}
+                       {:id 2 :room_def_id 0
+                        :grid_x 0 :grid_y 1 :rotation 0}]
+               :players []
+               :monsters []})]
+    (is (= 1 (count (re-seq #"class=\"room-rules-icon\"" html))))
+    (is (re-find #"aria-label=\"Nursery — additional rules\"" html))
+    (is (re-find #"aria-label=\"Entrance Hall\"" html))
+    (is (not (re-find #"aria-label=\"Entrance Hall — additional rules\"" html)))))
+
 (deftest renders-a-reusable-room-tile
   (let [html (str (h/html
                    (board/room-tile
@@ -73,4 +86,5 @@
     (is (re-find #"class=\"room\"" html))
     (is (re-find #">Gallery<" html))
     (is (re-find #">O I<" html))
+    (is (not (re-find #"class=\"room-rules-icon\"" html)))
     (is (= 2 (count (re-seq #"class=\"door\"" html))))))

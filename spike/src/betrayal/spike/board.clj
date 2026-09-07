@@ -136,7 +136,15 @@
             :x1 (ffirst points) :y1 (second (first points))
             :x2 (first (second points)) :y2 (second (second points))}]))
 
-(defn room-tile [{:keys [name doors features barrier-features]}]
+(defn additional-rules? [room]
+  (not (str/blank? (:description room))))
+
+(defn- room-rules-icon []
+  [:g {:class "room-rules-icon" :aria-hidden "true"}
+   [:circle {:cx 154 :cy 26 :r 12}]
+   [:text {:x 154 :y 31} "i"]])
+
+(defn room-tile [{:keys [name doors features barrier-features] :as room}]
   (let [all-features
         (str/join " " (map str (concat features barrier-features)))]
     [:g {:class "room"}
@@ -144,7 +152,9 @@
      (map door doors)
      [:text {:class "room-name" :x (/ cell-size 2) :y 70} name]
      (when-not (str/blank? all-features)
-       [:text {:class "features" :x (/ cell-size 2) :y 105} all-features])]))
+       [:text {:class "features" :x (/ cell-size 2) :y 105} all-features])
+     (when (additional-rules? room)
+       (room-rules-icon))]))
 
 (defn- grouped [entities]
   (group-by (juxt :grid_x :grid_y) entities))
@@ -203,7 +213,9 @@
               [:text {:x (/ cell-size 2) :y (/ cell-size 2)} "Place room"]])
            (for [room-data (:rooms board)]
              [:g {:class "room-cell draggable"
-                  :aria-label (:name room-data)
+                  :aria-label (str (:name room-data)
+                                   (when (additional-rules? room-data)
+                                     " — additional rules"))
                   :data-kind "room" :data-id (:id room-data)
                   :data-grid-x (:grid_x room-data)
                   :data-grid-y (:grid_y room-data)
