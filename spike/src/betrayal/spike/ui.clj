@@ -75,16 +75,24 @@
      children)))
 
 (defn- render-die [value]
-  [:span
-   (cond-> {:class "die"}
-     (some? value) (assoc :aria-label (str value))
-     (nil? value) (assoc :class "die placeholder" :aria-hidden true))
-   (case value 0 "" 1 "●" 2 "● ●" nil "")])
+  (let [name (case value 0 "zero" 1 "one" 2 "two" nil "zero")]
+    [:img
+     (cond-> {:class "die"
+              :src (str "/assets/images/dice/" name ".svg")}
+       (some? value) (assoc :alt name)
+       (nil? value) (assoc :class "die placeholder"
+                           :alt ""
+                           :aria-hidden true))]))
+
+(defn- dice-row [values]
+  [:div.dice-row
+   (if (seq values)
+     (map render-die values)
+     (render-die nil))])
 
 (defn- dice-panel [game-id player-id {:keys [latest-roll inventories]}]
   (let [omen-count (count (filter #(= 2 (:card_type_id %)) inventories))
         values (:values latest-roll)
-        dice-slots (take 8 (concat values (repeat nil)))
         total (reduce + 0 values)
         haunt? (= "HAUNT" (:type latest-roll))]
     [:section#dice-panel.panel.dice-panel {:aria-label "Dice"}
@@ -101,7 +109,8 @@
       [:button.wide {:type "submit"}
        (str "Haunt roll (" omen-count " omen" (when (not= omen-count 1) "s") ")")])
      [:div.dice-result
-      [:div.dice-row (map render-die dice-slots)]
+      (dice-row (take 4 values))
+      (dice-row (take 4 (drop 4 values)))
       [:strong {:class (when-not (seq values) "placeholder")}
        (str "Total: " total)]
       [:span

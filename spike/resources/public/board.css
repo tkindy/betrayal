@@ -496,22 +496,12 @@ a {
 
 .dice-row {
   display: flex;
-  flex-wrap: wrap;
   gap: 0.3rem;
   justify-content: center;
 }
 
 .die {
-  align-items: center;
-  background: #f4efe3;
-  border: 2px solid #312a21;
-  border-radius: 0.35rem;
-  color: #211d18;
-  display: inline-flex;
-  font-size: 0.65rem;
   height: 2rem;
-  justify-content: center;
-  letter-spacing: 0.15rem;
   width: 2rem;
 }
 
