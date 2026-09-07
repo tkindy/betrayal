@@ -115,9 +115,42 @@
    (action-form game-id selected-player-id "add-monster" {}
                 [:button.wide {:type "submit"} "Add monster"])])
 
+(def floors
+  [{:key \R :class "roof" :label "Roof"}
+   {:key \U :class "upper" :label "Upper"}
+   {:key \G :class "ground" :label "Ground"}
+   {:key \B :class "basement" :label "Basement"}])
+
+(defn- room-back [possible-floors]
+  [:svg.room-picker-preview
+   {:viewBox (str "0 0 " board/cell-size " " board/cell-size)
+    :aria-label
+    (str "Next room can be placed on "
+         (str/join ", "
+                   (for [{:keys [key label]} floors
+                         :when (some #{key} possible-floors)]
+                     label)))}
+   [:rect.picker-background {:width board/cell-size :height board/cell-size}]
+   [:path.house-outline {:d "M 20 160 L 20 55 L 90 15 L 160 55 L 160 160 Z"}]
+   [:path
+    {:class (str "floor-window roof"
+                 (when (some #{\R} possible-floors) " available"))
+     :d "M 29 55 L 90 21 L 151 55 Z"}]
+   (for [[index {:keys [key class]}] (map-indexed vector (rest floors))
+         :let [top (+ 60 (* index 32))]]
+     [:rect
+      {:class (str "floor-window " class
+                   (when (some #{key} possible-floors) " available"))
+       :x 29 :y top :width 122 :height 26}])])
+
 (defn- room-stack-panel [game-id selected-player-id room-stack]
   (let [definition (get @board/room-definitions (:room_def_id room-stack))
-        flipped? (:flipped room-stack)]
+        flipped? (:flipped room-stack)
+        room-data (when definition
+                    (assoc definition
+                           :doors (board/rotate-doors
+                                   (:doors definition)
+                                   (or (:rotation room-stack) 0))))]
     [:section.panel.room-stack-panel
      [:h2 "Room stack"]
      (cond
@@ -126,24 +159,17 @@
 
        flipped?
        [:div
-        [:div.room-stack-card
-         [:strong (:name definition)]
-         (when-not (str/blank? (:features definition))
-           [:span (str "Features: " (:features definition))])
-         [:span (str "Doors: "
-                     (str/join " "
-                               (board/rotate-doors
-                                (:doors definition)
-                                (or (:rotation room-stack) 0))))]]
+        [:svg.room-picker-preview.flipped
+         {:viewBox (str "0 0 " board/cell-size " " board/cell-size)
+          :aria-label (str "Flipped room: " (:name definition))}
+         (board/room-tile room-data)]
         [:p.room-placement-help "Choose a highlighted space on the board."]
         (action-form game-id selected-player-id "rotate-room-stack" {}
                      [:button.wide {:type "submit"} "Rotate"])]
 
        :else
        [:div
-        [:div.room-stack-card.back
-         [:strong "Next room"]
-         [:span (str "Floors: " (str/join " " (:floors definition)))]]
+        (room-back (:floors definition))
         [:div.split-actions
          (action-form game-id selected-player-id "flip-room-stack" {}
                       [:button {:type "submit"} "Use"])

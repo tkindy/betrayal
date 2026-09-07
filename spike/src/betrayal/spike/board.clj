@@ -118,7 +118,7 @@
             :x1 (ffirst points) :y1 (second (first points))
             :x2 (first (second points)) :y2 (second (second points))}]))
 
-(defn- room [{:keys [name doors features]}]
+(defn room-tile [{:keys [name doors features]}]
   [:g {:class "room"}
    [:rect {:class "room-background" :width cell-size :height cell-size :rx 8}]
    (map door doors)
@@ -187,7 +187,7 @@
                   :transform (format "translate(%d %d)"
                                      (* (:grid_x room-data) cell-size)
                                      (* (:grid_y room-data) cell-size))}
-              (room room-data)])]
+              (room-tile room-data)])]
           [:g.tokens
            (for [room-data (:rooms board)
                  :let [loc [(:grid_x room-data) (:grid_y room-data)]

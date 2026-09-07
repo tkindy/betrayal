@@ -41,3 +41,11 @@
     (testing "the latest roll and held card are rendered"
       (is (re-find #"Total: 3" html))
       (is (re-find #"Chainsaw" html)))))
+
+(deftest reuses-board-room-rendering-in-picker
+  (let [flipped (assoc-in state [:room-stack :flipped] true)
+        html (ui/render-ui "ABC123" flipped 7 nil)]
+    (is (re-find #"room-picker-preview flipped" html))
+    (is (re-find #"class=\"room\"" html))
+    (is (re-find #">Nursery<" html))
+    (is (re-find #"class=\"door\"" html))))

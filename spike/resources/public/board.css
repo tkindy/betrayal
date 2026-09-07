@@ -294,23 +294,41 @@ a {
   gap: 0.4rem;
 }
 
-.room-stack-card {
-  background: #ddd1b3;
-  border: 2px solid #493d2c;
-  border-radius: 0.4rem;
-  color: #211d18;
-  display: grid;
-  gap: 0.35rem;
-  min-height: 5rem;
-  padding: 0.55rem;
-  place-content: center;
-  text-align: center;
+.room-picker-preview {
+  aspect-ratio: 1;
+  background: #080706;
+  border: 2px solid #766751;
+  display: block;
+  width: 100%;
 }
 
-.room-stack-card.back {
-  background: #24211d;
-  border-color: #efc56a;
-  color: #efc56a;
+.room-picker-preview .room {
+  cursor: default;
+}
+
+.picker-background {
+  fill: #080706;
+}
+
+.house-outline {
+  fill: none;
+  stroke: #8c857d;
+  stroke-linejoin: round;
+  stroke-width: 6;
+}
+
+.floor-window {
+  fill: #85817c;
+  stroke: #080706;
+  stroke-width: 3;
+}
+
+.floor-window.available {
+  fill: #ffdc51;
+}
+
+.room-picker-preview.flipped {
+  border-color: #3db9b2;
 }
 
 .room-placement-help {

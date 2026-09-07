@@ -1,6 +1,7 @@
 (ns betrayal.spike.board-test
   (:require [betrayal.spike.board :as board]
-            [clojure.test :refer [deftest is testing]]))
+            [clojure.test :refer [deftest is testing]]
+            [hiccup2.core :as h]))
 
 (deftest rotates-doors
   (is (= [\N \E \S \W] (board/rotate-doors "NESW" 0)))
@@ -51,3 +52,12 @@
       (is (not (re-find #"<title>Entrance Hall</title>" html))))
     (testing "Hiccup escapes database content"
       (is (re-find #"Player &lt;one&gt;" html)))))
+
+(deftest renders-a-reusable-room-tile
+  (let [html (str (h/html
+                   (board/room-tile
+                    {:name "Gallery" :doors "NS" :features "O"})))]
+    (is (re-find #"class=\"room\"" html))
+    (is (re-find #">Gallery<" html))
+    (is (re-find #">O<" html))
+    (is (= 2 (count (re-seq #"class=\"door\"" html))))))
