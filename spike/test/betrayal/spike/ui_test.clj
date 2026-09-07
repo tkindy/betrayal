@@ -62,6 +62,8 @@
     (is (re-find #"class=\"room\"" html))
     (is (re-find #">Nursery<" html))
     (is (re-find #"aria-label=\"Flipped room: Nursery — additional rules\"" html))
+    (is (re-find #"data-room-name=\"Nursery\"" html))
+    (is (re-find #"data-description=\"If you end your turn here" html))
     (is (re-find #"class=\"room-rules-icon\"" html))
     (is (re-find #"class=\"door\"" html))))
 

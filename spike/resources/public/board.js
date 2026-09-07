@@ -136,20 +136,25 @@
     clearTimeout(hideDetailsTimer);
     const details = roomDetails();
     if (!details) return;
-    if (details.dataset.roomId !== room.dataset.id) {
-      const roomActions = details.querySelector(".room-actions-menu");
-      if (roomActions) roomActions.open = false;
+    const roomActions = details.querySelector(".room-actions-menu");
+    const actionsAvailable = room.matches(".room-cell");
+    const detailsKey = actionsAvailable ? `board-${room.dataset.id}` : "room-stack";
+    if (details.dataset.roomKey !== detailsKey && roomActions) {
+      roomActions.open = false;
     }
-    details.dataset.roomId = room.dataset.id;
+    details.dataset.roomKey = detailsKey;
+    if (roomActions) roomActions.hidden = !actionsAvailable;
     const playerCard = playerDetails();
     if (playerCard) playerCard.hidden = true;
     details.querySelector(".room-details-name").textContent =
       room.dataset.roomName;
     details.querySelector(".room-details-description").textContent =
       room.dataset.description || "No additional room rules.";
-    details.querySelectorAll(".room-details-id").forEach((input) => {
-      input.value = room.dataset.id;
-    });
+    if (actionsAvailable) {
+      details.querySelectorAll(".room-details-id").forEach((input) => {
+        input.value = room.dataset.id;
+      });
+    }
     details.hidden = false;
     details.setAttribute("aria-hidden", "false");
     positionBoardDetails(details, room);
@@ -185,7 +190,9 @@
       return;
     }
 
-    const room = event.target.closest(".room-cell");
+    const room = event.target.closest(
+      ".room-cell, .room-picker-preview.flipped"
+    );
     if (room) {
       showRoomDetails(room);
       return;
