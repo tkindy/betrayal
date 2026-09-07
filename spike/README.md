@@ -25,18 +25,16 @@ read the API's existing `rooms.csv` and `characters.csv` definitions without
 duplicating them. Alternatively, set `BETRAYAL_DEFINITIONS_DIR` to the directory
 containing those files.
 
-Use the **Playing as** control once to associate the current browser session
-with a player in that game. Player identity is stored per game in a server-side
-session and carried by an HTTP-only cookie; it is not accepted from game
-commands. The association lasts until the prototype process or browser session
-ends.
+The games listing shows a link for each player in a game. On loopback requests,
+that link's `player-id` query parameter identifies who that tab is playing as
+and is carried into its WebSocket connection. This makes it possible to play as
+different people in ordinary tabs. The server ignores this development
+override on non-loopback requests and always verifies that the player belongs
+to the game.
 
-For local multiplayer testing, append `?player-id=<id>` to a game URL. A
-loopback request can use this tab-local override instead of the shared browser
-session, and the page carries it into that tab's WebSocket connection. For
-example, `/games/ABC123?player-id=7` and `/games/ABC123?player-id=8` can be open
-in ordinary tabs at the same time. The server ignores this override on
-non-loopback requests and always verifies that the player belongs to the game.
+The **Viewing** control in the bottom bar is independent of that identity. It
+can inspect any player's traits and inventory without changing who the tab is
+playing as.
 
 ## Interactions
 

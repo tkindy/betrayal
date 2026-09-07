@@ -5,14 +5,13 @@
             [betrayal.spike.db :as db]
             [betrayal.spike.ui :as ui]
             [clojure.data.json :as json]
-            [compojure.core :refer [GET POST defroutes]]
+            [compojure.core :refer [GET defroutes]]
             [compojure.route :as route]
             [hiccup2.core :as h]
             [hiccup.page :refer [html5]]
             [org.httpkit.server :refer [as-channel run-server send!]]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [ring.middleware.params :refer [wrap-params]]
-            [ring.middleware.session :refer [wrap-session]]
             [ring.util.response :as response]))
 
 (defonce ^:private ds (delay (db/datasource)))
@@ -33,15 +32,18 @@
    "Betrayal board spike"
    [:main.index
     [:h1 "Betrayal board spike"]
-    [:p "Choose an existing game from the configured database."]
+    [:p "Choose who to play as in an existing game."]
     [:ul
-     (for [{:keys [id name]} (db/games @ds)]
-       [:li [:a {:href (str "/games/" id)} name " (" id ")"]])]]))
-
-(defn- session-player-id [request game-id]
-  (let [player-id (get-in request [:session :player-ids game-id])]
-    (when (and player-id (db/player-in-game? @ds game-id player-id))
-      player-id)))
+     (for [{:keys [id name players]} (db/games @ds)]
+       [:li
+        [:strong name " (" id ")"]
+        (if (seq players)
+          [:ul
+           (for [player players]
+             [:li
+              [:a {:href (str "/games/" id "?player-id=" (:id player))}
+               (:name player)]])]
+          [:p [:i "No players"]])])]]))
 
 (defn- local-request? [request]
   (try
@@ -55,16 +57,10 @@
       (when (and player-id (db/player-in-game? @ds game-id player-id))
         player-id))))
 
-(defn- request-player-id [request game-id]
-  (or (debug-player-id request game-id)
-      (session-player-id request game-id)))
-
 (defn- board-page [request game-id]
   (if-let [game (db/game @ds game-id)]
     (let [state (db/game-state @ds game-id)
-          debug-player-id (debug-player-id request game-id)
-          player-id (or debug-player-id
-                        (session-player-id request game-id))]
+          player-id (debug-player-id request game-id)]
       (page
        (str (:name game) " — board spike")
        [:header.game-header
@@ -73,7 +69,7 @@
         [:span "SVG + server-rendered fragments"]]
        [:main#board-viewport
         (cond-> {:data-game-id game-id}
-          debug-player-id (assoc :data-debug-player-id debug-player-id))
+          player-id (assoc :data-debug-player-id player-id))
         (h/raw (board/render-board state))
         (h/raw (ui/render-ui game-id state player-id nil))]))
     nil))
@@ -203,7 +199,7 @@
 (defn- game-websocket [request game-id]
   (if-not (db/game @ds game-id)
     (response/not-found "Game not found")
-    (let [player-id (request-player-id request game-id)]
+    (let [player-id (debug-player-id request game-id)]
       (as-channel
        request
        {:on-open
@@ -218,18 +214,6 @@
         (fn [channel _]
           (swap! clients dissoc channel))}))))
 
-(defn- select-player [request game-id]
-  (let [player-id (parse-int (get-in request [:params :player-id]) "Player ID")]
-    (if-not (db/player-in-game? @ds game-id player-id)
-      (-> (response/response "Player is not part of this game")
-          (response/status 422))
-      (-> (response/redirect (str "/games/" game-id))
-          (assoc :status 303)
-          (assoc :session
-                 (assoc-in (:session request)
-                           [:player-ids game-id]
-                           player-id))))))
-
 (defroutes routes
   (GET "/" [] (-> (response/response (index-page))
                   (response/content-type "text/html")))
@@ -237,8 +221,6 @@
     (if-let [body (board-page request game-id)]
       (-> (response/response body) (response/content-type "text/html"))
       (response/not-found "Game not found")))
-  (POST "/games/:game-id/player" [game-id :as request]
-    (select-player request game-id))
   (GET "/games/:game-id/socket" [game-id :as request]
     (game-websocket request game-id))
   (route/resources "/assets" {:root "public"})
@@ -247,10 +229,7 @@
 (def app
   (-> routes
       wrap-keyword-params
-      wrap-params
-      (wrap-session {:cookie-name "betrayal-session"
-                     :cookie-attrs {:http-only true
-                                    :same-site :lax}})))
+      wrap-params))
 
 (defn -main [& _]
   (let [port (parse-long (or (System/getenv "PORT") "8081"))]

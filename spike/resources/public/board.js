@@ -8,6 +8,7 @@
   let initialized = false;
   let socket;
   let reconnectTimer;
+  let viewedPlayerId;
   const commandQueue = [];
 
   const svg = () => viewport.querySelector("#board");
@@ -234,7 +235,33 @@
     }
     if (nextUi) {
       viewport.querySelector("#game-ui").replaceWith(nextUi);
+      syncCharacterPanel();
     }
+  }
+
+  function syncCharacterPanel() {
+    const select = viewport.querySelector("#player-select");
+    if (!select) return;
+    if (
+      !viewedPlayerId ||
+      !Array.from(select.options).some(
+        (option) => option.value === viewedPlayerId
+      )
+    ) {
+      viewedPlayerId = select.value;
+    }
+    select.value = viewedPlayerId;
+    viewport
+      .querySelectorAll("[data-viewed-player-id]")
+      .forEach((content) => {
+        content.hidden = content.dataset.viewedPlayerId !== viewedPlayerId;
+      });
+  }
+
+  function selectViewedPlayer(event) {
+    if (!event.target.matches("#player-select")) return;
+    viewedPlayerId = event.target.value;
+    syncCharacterPanel();
   }
 
   function submitGameAction(event) {
@@ -270,6 +297,7 @@
   viewport.addEventListener("pointerup", finishGesture);
   viewport.addEventListener("pointercancel", finishGesture);
   viewport.addEventListener("submit", submitGameAction);
+  viewport.addEventListener("change", selectViewedPlayer);
   viewport.addEventListener("click", placeRoom);
   viewport.addEventListener(
     "wheel",
@@ -291,6 +319,7 @@
   window.addEventListener("resize", () => {
     if (!initialized) fitBoard();
   });
+  syncCharacterPanel();
   fitBoard();
   connect();
 })();

@@ -14,9 +14,18 @@
       {}))))
 
 (defn games [ds]
-  (jdbc/execute! ds
-                 ["select id, name from games order by name"]
-                 options))
+  (let [games (jdbc/execute! ds
+                             ["select id, name from games order by name"]
+                             options)
+        players-by-game
+        (group-by
+         :game_id
+         (jdbc/execute!
+          ds
+          [(str "select id, name, \"gameId\" as game_id"
+                " from players order by \"gameId\", id")]
+          options))]
+    (mapv #(assoc % :players (get players-by-game (:id %) [])) games)))
 
 (defn game [ds game-id]
   (jdbc/execute-one! ds

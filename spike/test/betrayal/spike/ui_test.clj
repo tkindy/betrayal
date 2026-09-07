@@ -50,7 +50,7 @@
     (is (re-find #">Nursery<" html))
     (is (re-find #"class=\"door\"" html))))
 
-(deftest renders-session-player-actions
+(deftest renders-acting-player-actions
   (let [drawn-state (assoc state :drawn-card
                            {:id 10 :card_type_id 1 :card_def_id 0})
         identified-html (ui/render-ui "ABC123" drawn-state 7 nil)
@@ -58,6 +58,19 @@
     (testing "the session player can take a drawn card directly"
       (is (re-find #"data-action=\"take-drawn-card\"" identified-html))
       (is (re-find #">Take<" identified-html)))
-    (testing "an unidentified session must choose a player first"
+    (testing "an unidentified tab cannot take the card directly"
       (is (not (re-find #"data-action=\"take-drawn-card\"" anonymous-html)))
-      (is (re-find #"Choose a player" anonymous-html)))))
+      (is (re-find #">Viewing<" anonymous-html))
+      (is (not (re-find #"Playing as" anonymous-html))))))
+
+(deftest can-view-every-players-character-sheet
+  (let [other-player (assoc (first (:players state))
+                            :id 8
+                            :name "Blair")
+        two-player-state (update state :players conj other-player)
+        html (ui/render-ui "ABC123" two-player-state 7 nil)]
+    (is (re-find #">Viewing<" html))
+    (is (re-find #">Alex — Ox Bellows<" html))
+    (is (re-find #">Blair — Ox Bellows<" html))
+    (is (re-find #"data-viewed-player-id=\"7\"" html))
+    (is (re-find #"data-viewed-player-id=\"8\" hidden" html))))

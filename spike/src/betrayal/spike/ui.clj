@@ -240,20 +240,21 @@
       [:button {:type "submit"} "Give"])]]])
 
 (defn- character-panel [game-id player-id players]
-  (let [player (some #(when (= player-id (:id %)) %) players)]
+  (let [selected-player-id
+        (or (some #(when (= player-id (:id %)) player-id) players)
+            (:id (first players)))]
     [:section#character-panel.panel
-     [:form.character-heading
-      {:method "post" :action (str "/games/" game-id "/player")}
-      [:label {:for "player-select"} "Playing as"]
-      [:select#player-select {:name "player-id" :required true}
-       [:option {:value "" :selected (nil? player)} "Choose a player…"]
+     [:div.character-heading
+      [:label {:for "player-select"} "Viewing"]
+      [:select#player-select
        (for [candidate players]
          [:option {:value (:id candidate)
-                   :selected (= (:id candidate) player-id)}
-          (str (:name candidate) " — " (:character-name candidate))])]
-      [:button {:type "submit"} "Select"]]
-     (when player
+                   :selected (= (:id candidate) selected-player-id)}
+          (str (:name candidate) " — " (:character-name candidate))])]]
+     (for [player players]
        [:div.character-content
+        (cond-> {:data-viewed-player-id (:id player)}
+          (not= (:id player) selected-player-id) (assoc :hidden true))
         [:div.traits
          (for [trait trait-names]
            (render-trait game-id player-id player trait))]
