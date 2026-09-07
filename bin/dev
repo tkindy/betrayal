@@ -6,6 +6,19 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 DB_CONTAINER=${DB_CONTAINER:-betrayal-db}
 DB_PASSWORD=${DB_PASSWORD:-mysecretpassword}
 POSTGRES_IMAGE=${POSTGRES_IMAGE:-postgres:12.6}
+spike_only=false
+
+case "${1:-}" in
+    --spike-only)
+        spike_only=true
+        ;;
+    "")
+        ;;
+    *)
+        echo "Usage: $0 [--spike-only]" >&2
+        exit 2
+        ;;
+esac
 
 java_major_version() {
     java -XshowSettings:properties -version 2>&1 |
@@ -110,11 +123,19 @@ start_database
 
 export JDBC_DATABASE_URL="jdbc:postgresql://localhost:5432/postgres?user=postgres&password=$DB_PASSWORD"
 
-echo "Installing UI dependencies..."
-(cd "$ROOT/ui" && npm ci)
+if [ "$spike_only" = false ]; then
+    echo "Installing UI dependencies..."
+    (cd "$ROOT/ui" && npm ci)
+fi
 
 echo "Running database migrations..."
 (cd "$ROOT/api" && ./gradlew update)
+
+if [ "$spike_only" = true ]; then
+    echo "Starting Clojure app at http://localhost:8081..."
+    cd "$ROOT/spike"
+    exec clojure -M:run
+fi
 
 echo "Starting API at http://localhost:8080..."
 (cd "$ROOT/api" && exec ./gradlew run) &

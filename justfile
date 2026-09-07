@@ -4,6 +4,9 @@ install:
 dev:
     ./bin/dev
 
+dev-spike:
+    ./bin/dev --spike-only
+
 build: build-api build-ui build-clojure
 
 build-api:

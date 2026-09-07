@@ -43,6 +43,13 @@ http://localhost:8080.
 Press Ctrl-C to stop the API, UI, and Clojure app. The PostgreSQL container
 remains running so its data is preserved for the next session.
 
+To run only the Clojure spike and its database prerequisites, without installing
+or starting the original UI and API, run:
+
+```shell
+just dev-spike
+```
+
 ## Build
 
 Build all applications from the repository root:
