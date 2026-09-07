@@ -1,0 +1,30 @@
+.dice-background {
+  padding: 10px;
+}
+
+.dice-controls {
+  display: flex;
+  justify-content: space-around;
+}
+
+.dice-count {
+  flex: 0 1 20%;
+  min-width: 0px;
+}
+
+.roll-dice-button {
+  flex: 0 1 50%;
+}
+
+.dice-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  padding-top: 10px;
+  height: 30px;
+}
+
+.die-value {
+  width: 30px;
+  height: 30px;
+}

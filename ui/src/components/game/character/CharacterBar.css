@@ -1,0 +1,58 @@
+.inventoryContents {
+  display: flex;
+  flex-direction: row;
+  margin-left: 10px;
+  overflow-x: auto;
+}
+
+.inventoryCard {
+  flex: none;
+  width: 100px;
+  margin: 0px 5px;
+  border: 2px solid black;
+
+  display: grid;
+  grid-template: auto;
+}
+
+.inventoryCard > * {
+  grid-column: 1;
+  grid-row: 1;
+  text-align: center;
+  place-self: center;
+}
+
+.inventoryCard.EVENT {
+  background-color: #edd281;
+}
+
+.inventoryCard.ITEM {
+  background-color: #bc7043;
+}
+
+.inventoryCard.OMEN {
+  background-color: #a5c96c;
+}
+
+.traitValue {
+  width: 20px;
+  padding: 5px;
+  border: 0;
+}
+
+.traitValue:hover {
+  background-color: lightgray;
+}
+
+.traitValue.active {
+  background-color: lightblue;
+}
+
+.traitValue.active:hover {
+  background-color: lightgray;
+}
+
+.traitValue.starting {
+  font-weight: bold;
+  color: red;
+}

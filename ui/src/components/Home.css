@@ -1,0 +1,33 @@
+h1 {
+  text-align: center;
+}
+
+.container {
+  display: grid;
+  grid-template-columns: 12fr 1fr 7fr;
+  grid-template-rows: 40px 25px 40px;
+  max-width: 500px;
+  margin: auto;
+}
+
+input.host-name {
+  grid-column: 1 / 2;
+  grid-row: 1 / 2;
+  text-align: center;
+}
+
+button.new-game {
+  grid-column: 3 / 4;
+  grid-row: 1 / 2;
+}
+
+input.join-game {
+  grid-column: 1 / 2;
+  grid-row: 3 / 4;
+  text-align: center;
+}
+
+button.join-game {
+  grid-column: 3 / 4;
+  grid-row: 3 / 4;
+}

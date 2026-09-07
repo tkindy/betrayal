@@ -1,0 +1,45 @@
+.cardDetailsWrapper {
+  grid-column: 1;
+  grid-row: 1;
+  place-self: center;
+}
+
+.cardDetails {
+  min-width: 300px;
+  max-width: 400px;
+  border-radius: 25px;
+  border: 3px solid black;
+}
+
+.cardContentsContainer {
+  padding: 20px;
+}
+
+.cardName {
+  text-align: center;
+  font-size: 28px;
+}
+
+.cardSubtype {
+  text-align: center;
+}
+
+.cardFlavorText {
+  font-style: italic;
+  text-align: center;
+}
+
+.rollTable {
+  border-spacing: 25px 10px;
+}
+
+.cardDetailsControls {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  padding: 20px;
+}
+
+.cardDetailsControls > * {
+  height: 50px;
+}

@@ -1,0 +1,7 @@
+#!/usr/bin/env fish
+
+npm run build
+
+echo "Creating tar..."
+tar czf betrayal-ui.tar.gz -C build .
+echo "betrayal-ui.tar.gz created"
