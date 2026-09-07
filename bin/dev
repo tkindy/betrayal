@@ -1,0 +1,126 @@
+#!/bin/sh
+
+set -eu
+
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+DB_CONTAINER=${DB_CONTAINER:-betrayal-db}
+DB_PASSWORD=${DB_PASSWORD:-mysecretpassword}
+POSTGRES_IMAGE=${POSTGRES_IMAGE:-postgres:12.6}
+
+java_major_version() {
+    java -XshowSettings:properties -version 2>&1 |
+        awk '/java.specification.version/ { print $3; exit }'
+}
+
+use_java_21() {
+    if command -v java >/dev/null 2>&1 && [ "$(java_major_version)" = "21" ]; then
+        return
+    fi
+
+    if [ -x /usr/libexec/java_home ]; then
+        JAVA_HOME=$(/usr/libexec/java_home -v 21 2>/dev/null || true)
+        if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+            export JAVA_HOME
+            PATH="$JAVA_HOME/bin:$PATH"
+            export PATH
+        fi
+    fi
+
+    if command -v java >/dev/null 2>&1 && [ "$(java_major_version)" = "21" ]; then
+        return
+    fi
+
+    for candidate in "$HOME"/.sdkman/candidates/java/21*; do
+        if [ -x "$candidate/bin/java" ]; then
+            JAVA_HOME=$candidate
+            export JAVA_HOME
+            PATH="$JAVA_HOME/bin:$PATH"
+            export PATH
+            return
+        fi
+    done
+
+    echo "JDK 21 is required. Install it or select it with 'sdk use java <21-version>'." >&2
+    exit 1
+}
+
+start_database() {
+    if ! docker info >/dev/null 2>&1; then
+        echo "Docker is not running. Start Docker and try again." >&2
+        exit 1
+    fi
+
+    if docker inspect "$DB_CONTAINER" >/dev/null 2>&1; then
+        if [ "$(docker inspect -f '{{.State.Running}}' "$DB_CONTAINER")" != "true" ]; then
+            echo "Starting existing PostgreSQL container '$DB_CONTAINER'..."
+            docker start "$DB_CONTAINER" >/dev/null
+        fi
+    else
+        echo "Creating PostgreSQL container '$DB_CONTAINER'..."
+        docker run \
+            --name "$DB_CONTAINER" \
+            -e "POSTGRES_PASSWORD=$DB_PASSWORD" \
+            -p 5432:5432 \
+            -d "$POSTGRES_IMAGE" >/dev/null
+    fi
+
+    echo "Waiting for PostgreSQL..."
+    attempts=0
+    until docker exec "$DB_CONTAINER" pg_isready -U postgres >/dev/null 2>&1; do
+        attempts=$((attempts + 1))
+        if [ "$attempts" -ge 30 ]; then
+            echo "PostgreSQL did not become ready within 30 seconds." >&2
+            exit 1
+        fi
+        sleep 1
+    done
+}
+
+api_pid=
+ui_pid=
+
+cleanup() {
+    status=$?
+    trap - EXIT INT TERM
+
+    [ -z "$api_pid" ] || kill "$api_pid" 2>/dev/null || true
+    [ -z "$ui_pid" ] || kill "$ui_pid" 2>/dev/null || true
+    [ -z "$api_pid" ] || wait "$api_pid" 2>/dev/null || true
+    [ -z "$ui_pid" ] || wait "$ui_pid" 2>/dev/null || true
+
+    exit "$status"
+}
+
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+use_java_21
+echo "Using $(java -version 2>&1 | sed -n '1p')"
+
+start_database
+
+export JDBC_DATABASE_URL="jdbc:postgresql://localhost:5432/postgres?user=postgres&password=$DB_PASSWORD"
+
+echo "Installing UI dependencies..."
+(cd "$ROOT/ui" && npm ci)
+
+echo "Running database migrations..."
+(cd "$ROOT/api" && ./gradlew update)
+
+echo "Starting API at http://localhost:8080..."
+(cd "$ROOT/api" && exec ./gradlew run) &
+api_pid=$!
+
+echo "Starting UI at http://localhost:3000..."
+(cd "$ROOT/ui" && exec npm start) &
+ui_pid=$!
+
+echo "Local development is running. Press Ctrl-C to stop both applications."
+
+while kill -0 "$api_pid" 2>/dev/null && kill -0 "$ui_pid" 2>/dev/null; do
+    sleep 1
+done
+
+echo "A development process stopped unexpectedly." >&2
+exit 1

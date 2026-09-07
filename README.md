@@ -6,7 +6,8 @@ My Betrayal at House on the Hill companion app.
 
 - JDK 21
 - Node.js and npm
-- Docker, when running the API tests (they use Testcontainers with PostgreSQL)
+- [just](https://github.com/casey/just)
+- Docker, for local development and API tests
 
 If more than one JDK is installed, make sure `JAVA_HOME` and `java -version`
 both select JDK 21 before running Gradle.
@@ -20,6 +21,25 @@ just install
 ```
 
 Gradle downloads the API dependencies on its first invocation.
+
+## Run locally
+
+Start Docker, then run the complete development environment from the repository
+root:
+
+```shell
+just dev
+```
+
+The launcher can also be run directly with `./bin/dev`.
+
+This command selects an installed JDK 21, starts or reuses the local PostgreSQL
+container, installs the UI dependencies, runs the database migrations, and
+starts both applications. Open http://localhost:3000. The API listens on
+http://localhost:8080.
+
+Press Ctrl-C to stop the API and UI. The PostgreSQL container remains running
+so its data is preserved for the next session.
 
 ## Build
 

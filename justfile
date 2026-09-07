@@ -1,6 +1,9 @@
 install:
     cd ui && npm ci
 
+dev:
+    ./bin/dev
+
 build: build-api build-ui
 
 build-api:
