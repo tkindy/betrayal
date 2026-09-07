@@ -23,7 +23,16 @@ import java.time.Duration
 fun main() {
     Database.connect(
         HikariDataSource().apply {
-            jdbcUrl = System.getenv("JDBC_DATABASE_URL")
+            val databaseUrl = System.getenv("JDBC_DATABASE_URL")
+            if (databaseUrl != null) {
+                jdbcUrl = databaseUrl
+            } else {
+                val host = System.getenv("DB_HOST") ?: "localhost"
+                val name = System.getenv("DB_NAME") ?: "postgres"
+                jdbcUrl = "jdbc:postgresql://$host:5432/$name"
+                username = System.getenv("DB_USER") ?: "postgres"
+                password = System.getenv("DB_PASSWORD")
+            }
         }
     )
     val port = System.getenv("PORT")?.toInt() ?: 8080
@@ -68,6 +77,9 @@ fun main() {
         }
 
         routing {
+            get("/up") {
+                call.respondText("OK")
+            }
             lobbyRoutes()
             gameRoutes()
         }

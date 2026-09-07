@@ -38,6 +38,24 @@ just build-api
 just build-ui
 ```
 
+## Deploy
+
+The production image contains both applications. Nginx serves the React UI and
+proxies `/api` to the Ktor API in the same container. Liquibase migrations run
+automatically before the processes start.
+
+Deployments use [Kamal](https://kamal-deploy.org/) and the PostgreSQL accessory
+defined in `config/deploy.yml`.
+
+Secrets are pulled from 1Password via `.kamal/secrets`. Deploy with:
+
+```shell
+kamal deploy
+```
+
+The database is persisted in the `betrayal-db` accessory's `data` directory on
+the server. Back it up before server maintenance or PostgreSQL upgrades.
+
 ## Test
 
 Start Docker, then run:

@@ -1,0 +1,41 @@
+service: betrayal
+image: tkindy/betrayal
+
+servers:
+  web:
+    - 69.164.220.122
+
+proxy:
+  ssl: true
+  host: betrayal.tylerkindy.com
+  healthcheck:
+    path: /up
+
+registry:
+  username: tkindy
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+builder:
+  arch: amd64
+
+env:
+  clear:
+    DB_HOST: betrayal-db
+    DB_NAME: betrayal
+    DB_USER: betrayal
+  secret:
+    - DB_PASSWORD:POSTGRES_PASSWORD
+
+accessories:
+  db:
+    image: postgres:16
+    host: 69.164.220.122
+    env:
+      clear:
+        POSTGRES_DB: betrayal
+        POSTGRES_USER: betrayal
+      secret:
+        - POSTGRES_PASSWORD
+    directories:
+      - data:/var/lib/postgresql/data

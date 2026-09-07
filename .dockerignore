@@ -1,0 +1,11 @@
+.git
+.github
+.gradle
+.idea
+.kamal
+**/.env*
+!ui/.env.production
+api/.gradle
+api/build
+ui/build
+ui/node_modules
