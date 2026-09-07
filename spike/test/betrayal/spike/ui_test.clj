@@ -41,7 +41,10 @@
       (is (re-find #"data-board-view=\"zoom-in\"" html))
       (is (re-find #"data-board-view=\"fit\"" html))
       (is (re-find #"hx-post=\"/games/ABC123/actions/roll\?player-id=7\"" html))
-      (is (re-find #"hx-disable=\"find button\"" html)))
+      (is (re-find #"hx-disable=\"find button\"" html))
+      (is (< (.indexOf html "id=\"zoom-panel\"")
+             (.indexOf html "id=\"game-sidebar\""))
+          "zoom controls render separately from, and before, the sidebar"))
     (testing "the latest roll and held card are rendered"
       (is (re-find #"Total: 3" html))
       (is (re-find #"Chainsaw" html)))))

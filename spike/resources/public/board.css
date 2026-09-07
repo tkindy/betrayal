@@ -373,6 +373,13 @@ a {
   width: 14rem;
 }
 
+#zoom-panel {
+  left: 1rem;
+  pointer-events: auto;
+  position: absolute;
+  top: 1rem;
+}
+
 .panel {
   backdrop-filter: blur(8px);
   background: rgb(38 33 27 / 93%);

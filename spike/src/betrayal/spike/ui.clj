@@ -362,11 +362,11 @@
       (h/html
        [:div#game-ui {:data-player-id player-id}
         (error-region error)
+        (zoom-panel)
         [:aside#game-sidebar
          (dice-panel game-id player-id state)
          (draw-panel game-id player-id)
          (monster-panel game-id player-id)
-         (zoom-panel)
          (room-stack-panel game-id player-id (:room-stack state))]
         (character-panel game-id player-id players)
         (drawn-card-overlay game-id player-id players drawn-card)])))))
