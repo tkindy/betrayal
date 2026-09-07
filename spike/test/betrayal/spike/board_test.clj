@@ -51,6 +51,8 @@
     (testing "room details use the app hovercard rather than an SVG title"
       (is (re-find #"data-description=\"\"" html))
       (is (re-find #"id=\"room-details\"" html))
+      (is (re-find #"aria-label=\"Room actions\"" html))
+      (is (re-find #">⋯</summary>" html))
       (is (re-find #"data-action=\"rotate-room\"" html))
       (is (re-find #"data-action=\"return-room\"" html))
       (is (not (re-find #"<title>Entrance Hall</title>" html))))

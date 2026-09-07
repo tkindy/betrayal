@@ -240,18 +240,20 @@
          {:role "dialog" :aria-hidden "true" :hidden true}
          [:strong.room-details-name]
          [:p.room-details-description]
-         [:div.room-details-actions
-          [:form.game-action
-           {:action "#" :data-action "rotate-room"}
-           [:input.room-details-id
-            {:type "hidden" :name "room-id"}]
-           [:button {:type "submit"} "Rotate"]]
-          [:form.game-action
-           {:action "#" :data-action "return-room"
-            :data-confirm "Return this room to the stack?"}
-           [:input.room-details-id
-            {:type "hidden" :name "room-id"}]
-           [:button.danger {:type "submit"} "Return to stack"]]]]
+         [:details.room-actions-menu
+          [:summary {:aria-label "Room actions"} "⋯"]
+          [:div.room-details-actions
+           [:form.game-action
+            {:action "#" :data-action "rotate-room"}
+            [:input.room-details-id
+             {:type "hidden" :name "room-id"}]
+            [:button {:type "submit"} "Rotate"]]
+           [:form.game-action
+            {:action "#" :data-action "return-room"
+             :data-confirm "Return this room to the stack?"}
+            [:input.room-details-id
+             {:type "hidden" :name "room-id"}]
+            [:button.danger {:type "submit"} "Return to stack"]]]]]
         [:div#player-details
          {:role "dialog" :aria-hidden "true" :hidden true}
          [:strong.player-details-name]

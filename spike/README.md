@@ -84,9 +84,9 @@ clojure -M:test
 ## Parallel deployment
 
 `Dockerfile.clojure` and `config/deploy.clojure.yml` define a separate
-`betrayal-clojure` service, so it can run alongside the original `betrayal`
-service against the same PostgreSQL database. Set `BETRAYAL_CLOJURE_HOST` to its
-separate hostname and deploy it with:
+`betrayal-clojure` service at `betrayal-beta.tylerkindy.com`, so it can run
+alongside the original `betrayal` service against the same PostgreSQL database.
+Deploy it with:
 
 ```sh
 kamal deploy -c config/deploy.clojure.yml

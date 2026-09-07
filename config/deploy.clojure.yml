@@ -7,7 +7,7 @@ servers:
 
 proxy:
   ssl: true
-  host: <%= ENV.fetch("BETRAYAL_CLOJURE_HOST") %>
+  host: betrayal-beta.tylerkindy.com
   healthcheck:
     path: /up
 

@@ -111,6 +111,8 @@
       details.hidden = true;
       details.setAttribute("aria-hidden", "true");
     }
+    const roomActions = roomDetails()?.querySelector(".room-actions-menu");
+    if (roomActions) roomActions.open = false;
   }
 
   function scheduleHideBoardDetails() {
@@ -118,25 +120,32 @@
     hideDetailsTimer = setTimeout(hideBoardDetails, 150);
   }
 
-  function positionBoardDetails(details, event) {
+  function positionBoardDetails(details, target) {
     const viewportBox = viewport.getBoundingClientRect();
+    const targetBox = target.getBoundingClientRect();
     const gap = 16;
-    const desiredX = event.clientX - viewportBox.left + gap;
-    const desiredY = event.clientY - viewportBox.top + gap;
-    details.style.left = `${Math.max(
-      gap,
-      Math.min(desiredX, viewport.clientWidth - details.offsetWidth - gap)
-    )}px`;
+    const right = targetBox.right - viewportBox.left + gap;
+    const left =
+      targetBox.left - viewportBox.left - details.offsetWidth - gap;
+    const desiredX =
+      right + details.offsetWidth <= viewport.clientWidth - gap ? right : left;
+    const desiredY = targetBox.top - viewportBox.top;
+    details.style.left = `${Math.max(gap, desiredX)}px`;
     details.style.top = `${Math.max(
       gap,
       Math.min(desiredY, viewport.clientHeight - details.offsetHeight - gap)
     )}px`;
   }
 
-  function showRoomDetails(room, event) {
+  function showRoomDetails(room) {
     clearTimeout(hideDetailsTimer);
     const details = roomDetails();
     if (!details) return;
+    if (details.dataset.roomId !== room.dataset.id) {
+      const roomActions = details.querySelector(".room-actions-menu");
+      if (roomActions) roomActions.open = false;
+    }
+    details.dataset.roomId = room.dataset.id;
     const playerCard = playerDetails();
     if (playerCard) playerCard.hidden = true;
     details.querySelector(".room-details-name").textContent =
@@ -148,10 +157,10 @@
     });
     details.hidden = false;
     details.setAttribute("aria-hidden", "false");
-    positionBoardDetails(details, event);
+    positionBoardDetails(details, room);
   }
 
-  function showPlayerDetails(player, event) {
+  function showPlayerDetails(player) {
     clearTimeout(hideDetailsTimer);
     const details = playerDetails();
     if (!details) return;
@@ -167,7 +176,7 @@
     }
     details.hidden = false;
     details.setAttribute("aria-hidden", "false");
-    positionBoardDetails(details, event);
+    positionBoardDetails(details, player);
   }
 
   function updateBoardDetails(event) {
@@ -183,13 +192,13 @@
 
     const room = event.target.closest(".room-cell");
     if (room) {
-      showRoomDetails(room, event);
+      showRoomDetails(room);
       return;
     }
 
     const player = event.target.closest(".token.player");
     if (player) {
-      showPlayerDetails(player, event);
+      showPlayerDetails(player);
       return;
     }
 
