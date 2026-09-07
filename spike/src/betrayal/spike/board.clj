@@ -247,7 +247,6 @@
            [:form.game-action
             {:action (str "/games/" game-id "/actions/rotate-room")
              :method "post"
-             :data-action "rotate-room"
              :hx-post (str "/games/" game-id "/actions/rotate-room")
              :hx-swap "none"
              :hx-disable "find button"}
@@ -257,7 +256,6 @@
            [:form.game-action
             {:action (str "/games/" game-id "/actions/return-room")
              :method "post"
-             :data-action "return-room"
              :hx-post (str "/games/" game-id "/actions/return-room")
              :hx-swap "none"
              :hx-disable "find button"

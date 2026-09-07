@@ -123,3 +123,9 @@ Use only one implementation as the writer during a play session. Both use the
 same schema and definition files, so games can be created, opened, and modified
 by either implementation. Real-time updates are not relayed between clients
 connected to different implementations.
+
+## Future improvements
+
+- Replace the manually constructed SQL strings in the Clojure data layer with a
+  composable Clojure SQL library. The current queries remain parameterized, but
+  a library would make dynamic statements easier to read and maintain.

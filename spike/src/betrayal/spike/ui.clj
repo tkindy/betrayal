@@ -68,7 +68,6 @@
      [:form.game-action
       (merge {:action action-url
             :method "post"
-            :data-action action
             :hx-post action-url
             :hx-swap "none"
             :hx-disable "find button"}

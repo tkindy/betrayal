@@ -32,12 +32,12 @@
 (deftest renders-game-controls
   (let [html (ui/render-ui "ABC123" state 7 nil)]
     (testing "dice, card, monster, trait, and inventory actions are present"
-      (is (re-find #"data-action=\"roll\"" html))
-      (is (re-find #"data-action=\"draw-card\"" html))
-      (is (re-find #"data-action=\"add-monster\"" html))
-      (is (re-find #"data-action=\"flip-room-stack\"" html))
-      (is (re-find #"data-action=\"set-trait\"" html))
-      (is (re-find #"data-action=\"discard-held-card\"" html))
+      (is (re-find #"/actions/roll\?player-id=7" html))
+      (is (re-find #"/actions/draw-card\?player-id=7" html))
+      (is (re-find #"/actions/add-monster\?player-id=7" html))
+      (is (re-find #"/actions/flip-room-stack\?player-id=7" html))
+      (is (re-find #"/actions/set-trait\?player-id=7" html))
+      (is (re-find #"/actions/discard-held-card\?player-id=7" html))
       (is (re-find #"data-board-view=\"zoom-in\"" html))
       (is (re-find #"data-board-view=\"fit\"" html))
       (is (re-find #"hx-post=\"/games/ABC123/actions/roll\?player-id=7\"" html))
@@ -60,10 +60,10 @@
         identified-html (ui/render-ui "ABC123" drawn-state 7 nil)
         anonymous-html (ui/render-ui "ABC123" drawn-state nil nil)]
     (testing "the acting player can take a drawn card directly"
-      (is (re-find #"data-action=\"take-drawn-card\"" identified-html))
+      (is (re-find #"/actions/take-drawn-card\?player-id=7" identified-html))
       (is (re-find #">Take<" identified-html)))
     (testing "an unidentified tab cannot take the card directly"
-      (is (not (re-find #"data-action=\"take-drawn-card\"" anonymous-html)))
+      (is (not (re-find #"/actions/take-drawn-card" anonymous-html)))
       (is (re-find #">Viewing<" anonymous-html))
       (is (not (re-find #"Playing as" anonymous-html))))))
 

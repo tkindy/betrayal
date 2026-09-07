@@ -74,7 +74,6 @@
      [:section
       [:h2 "New game"]
       [:form {:method "post" :action "/lobbies"}
-       [:label "Game name" [:input {:name "game-name" :maxlength 32 :required true}]]
        [:label "Your name" [:input {:name "player-name" :maxlength 20 :required true}]]
        [:button {:type "submit"} "Create lobby"]]]
      [:section
@@ -108,7 +107,7 @@
           player-id (or debug-player-id
                         (session-player-id request game-id))]
       (page
-       (str (:name game) " — Betrayal")
+       "Betrayal"
        [:header.game-header
         [:a {:href "/"} "‹ Games"]
         [:strong (:name game)]
@@ -374,8 +373,11 @@
 
          member
          [:div
-          [:p "Share lobby code " [:strong (:id lobby)] " with the other players."]
-          [:h2 (:game-name lobby)]
+          [:p "Share "
+           [:a {:href (str "/lobbies/" (:id lobby))} "this lobby link"]
+           " with the other players. Lobby code: "
+           [:strong (:id lobby)]]
+          [:h2 "Lobby"]
           [:ul
            (for [player (:players lobby)]
              [:li (:name player)])]
@@ -424,15 +426,13 @@
 
 (defn- create-lobby [request]
   (try
-    (let [game-name (valid-name (get-in request [:params :game-name])
-                                "Game name" 32)
-          player-name (valid-name (get-in request [:params :player-name])
+    (let [player-name (valid-name (get-in request [:params :player-name])
                                   "Player name" 20)
           lobby-id (next-lobby-id)
           token (str (UUID/randomUUID))
           player {:token token :name player-name}
           lobby {:id lobby-id
-                 :game-name game-name
+                 :game-name "Betrayal"
                  :host-token token
                  :players [player]}]
       (swap! lobbies assoc lobby-id lobby)

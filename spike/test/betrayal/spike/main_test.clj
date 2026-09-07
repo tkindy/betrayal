@@ -121,15 +121,14 @@
        #'main/next-lobby-id (constantly "ABCDEF")}
       (fn []
         (let [response (#'main/create-lobby
-                        {:params {:game-name "Friday night"
-                                  :player-name "Alex"}
+                        {:params {:player-name "Alex"}
                          :session {}})
               token (get-in response [:session :lobby-ids "ABCDEF"])]
           (is (= 303 (:status response)))
           (is (= "/lobbies/ABCDEF" (get-in response [:headers "Location"])))
           (is (string? token))
           (is (= {:id "ABCDEF"
-                  :game-name "Friday night"
+                  :game-name "Betrayal"
                   :host-token token
                   :players [{:token token :name "Alex"}]}
                  (get @lobbies "ABCDEF"))))))))
@@ -138,6 +137,17 @@
   (is (= "/lobbies/ABCDEF"
          (get-in (#'main/find-lobby "abcdef") [:headers "Location"])))
   (is (= 422 (:status (#'main/find-lobby "not a code")))))
+
+(deftest lobby-links-can-be-shared-with-new-players
+  (let [lobby {:id "ABCDEF"
+               :game-name "Betrayal"
+               :host-token "host-token"
+               :players [{:token "host-token" :name "Alex"}]}
+        host-html (#'main/render-lobby-state lobby "host-token")
+        guest-html (#'main/render-lobby-state lobby nil)]
+    (is (re-find #"href=\"/lobbies/ABCDEF\"" host-html))
+    (is (re-find #"action=\"/lobbies/ABCDEF/players\"" guest-html))
+    (is (re-find #"Your name" guest-html))))
 
 (deftest starts-a-game-and-preserves-lobby-player-bindings
   (let [host-token "host-token"

@@ -53,8 +53,8 @@
       (is (re-find #"id=\"room-details\"" html))
       (is (re-find #"aria-label=\"Room actions\"" html))
       (is (re-find #">⋯</summary>" html))
-      (is (re-find #"data-action=\"rotate-room\"" html))
-      (is (re-find #"data-action=\"return-room\"" html))
+      (is (re-find #"hx-post=\"/games//actions/rotate-room\"" html))
+      (is (re-find #"hx-post=\"/games//actions/return-room\"" html))
       (is (not (re-find #"<title>Entrance Hall</title>" html))))
     (testing "player tokens provide data for an app hovercard"
       (is (re-find #"data-player-name=\"Player &lt;one&gt;\"" html))
