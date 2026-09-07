@@ -55,6 +55,15 @@
       (is (re-find #"Total: 3" html))
       (is (re-find #"Chainsaw" html)))))
 
+(deftest renders-rolling-placeholder-instead-of-the-dice-result
+  (let [html (ui/render-ui "ABC123" (assoc state :rolling? true) 7 nil)]
+    (is (re-find #">Rolling\.\.\.<" html))
+    (is (re-find #"role=\"status\"" html))
+    (is (not (re-find #"Total: 3" html)))
+    (is (= 2 (count (re-seq #"class=\"dice-row\"" html)))
+        "hidden dice rows preserve the result area's normal height")
+    (is (= 2 (count (re-seq #"class=\"die placeholder\"" html))))))
+
 (deftest reuses-board-room-rendering-in-picker
   (let [flipped (assoc-in state [:room-stack :flipped] true)
         html (ui/render-ui "ABC123" flipped 7 nil)]

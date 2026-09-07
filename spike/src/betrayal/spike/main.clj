@@ -2,7 +2,9 @@
   (:gen-class)
   (:import [java.net InetAddress]
            [java.security MessageDigest]
-           [java.util UUID])
+           [java.util UUID]
+           [java.util.concurrent Executors ScheduledExecutorService
+            ThreadFactory TimeUnit])
   (:require [betrayal.spike.board :as board]
             [betrayal.spike.db :as db]
             [betrayal.spike.ui :as ui]
@@ -19,6 +21,19 @@
             [ring.util.response :as response]))
 
 (defonce ^:private ds (delay (db/datasource)))
+(defonce ^:private rolling-games (atom {}))
+
+(def ^:private roll-reveal-delay-ms 1000)
+
+(defonce ^:private ^ScheduledExecutorService scheduler
+  (Executors/newSingleThreadScheduledExecutor
+   (reify ThreadFactory
+     (newThread [_ runnable]
+       (doto (Thread. runnable "betrayal-scheduler")
+         (.setDaemon true))))))
+
+(defn- schedule! [delay-ms task]
+  (.schedule scheduler ^Runnable task delay-ms TimeUnit/MILLISECONDS))
 
 (defn- production? []
   (= "production" (System/getenv "ENVIRONMENT")))
@@ -150,9 +165,13 @@
      (h/raw (ui/render-updates
              game-id state player-id error regions))])))
 
+(defn- game-state-for-rendering [game-id]
+  (cond-> (db/game-state @ds game-id)
+    (contains? @rolling-games game-id) (assoc :rolling? true)))
+
 (defn- render-fragments [game-id player-id error regions]
   (render-fragments-from-state
-   game-id (db/game-state @ds game-id) player-id error regions))
+   game-id (game-state-for-rendering game-id) player-id error regions))
 
 (defn- run-action! [game-id player-id action params]
   (case action
@@ -271,7 +290,7 @@
        "\n\n"))
 
 (defn- broadcast-state! [game-id regions]
-  (let [state (db/game-state @ds game-id)]
+  (let [state (game-state-for-rendering game-id)]
     (doseq [[channel client] @game-streams
             :when (= game-id (:game-id client))]
       (send! channel
@@ -280,6 +299,24 @@
                game-id state (:player-id client) nil
                (conj regions :error)))
              false))))
+
+(defn- begin-roll-reveal! [game-id regions]
+  (let [roll-token (Object.)]
+    (swap! rolling-games assoc game-id roll-token)
+    (broadcast-state! game-id regions)
+    (schedule!
+     roll-reveal-delay-ms
+     (fn []
+       (let [reveal? (volatile! false)]
+         (swap! rolling-games
+                (fn [games]
+                  (if (identical? roll-token (get games game-id))
+                    (do
+                      (vreset! reveal? true)
+                      (dissoc games game-id))
+                    games)))
+         (when @reveal?
+           (broadcast-state! game-id regions)))))))
 
 (defn- game-events [request game-id]
   (if-not (db/game @ds game-id)
@@ -312,7 +349,9 @@
             (case command
               :move (run-move! game-id (:params request))
               (run-action! game-id player-id (name command) (:params request)))]
-        (broadcast-state! game-id regions)
+        (if (= command :roll)
+          (begin-roll-reveal! game-id regions)
+          (broadcast-state! game-id regions))
         {:status 204})
       (catch Exception exception
         (-> (response/response

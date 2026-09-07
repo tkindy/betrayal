@@ -509,7 +509,15 @@ a {
   display: grid;
   gap: 0.35rem;
   margin-top: 0.6rem;
+  position: relative;
   text-align: center;
+}
+
+.rolling-label {
+  display: grid;
+  inset: 0;
+  place-items: center;
+  position: absolute;
 }
 
 .dice-row {

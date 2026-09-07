@@ -258,14 +258,34 @@
                           (is (= ["GAME" 7 "roll" "8"]
                                  [game-id player-id action (:num-dice params)]))
                           #{:dice})
-     #'main/broadcast-state! (fn [game-id regions]
-                              (is (= ["GAME" #{:dice}]
-                                     [game-id regions])))}
+     #'main/begin-roll-reveal! (fn [game-id regions]
+                                (is (= ["GAME" #{:dice}]
+                                       [game-id regions])))}
     (fn []
       (let [response (#'main/command-response
                       {:params {:num-dice "8"}} "GAME" :roll)]
         (is (= 204 (:status response)))
         (is (nil? (:body response)))))))
+
+(deftest rolling-state-is-broadcast-before-the-delayed-result
+  (let [broadcasts (atom [])
+        rolling-games (atom {})
+        scheduled (promise)]
+    (with-redefs-fn
+      {#'main/rolling-games rolling-games
+       #'main/roll-reveal-delay-ms 0
+       #'main/broadcast-state! (fn [game-id regions]
+                                 (swap! broadcasts conj
+                                        [game-id regions
+                                         (contains? @rolling-games game-id)])
+                                 (when (= 2 (count @broadcasts))
+                                   (deliver scheduled true)))}
+      (fn []
+        (#'main/begin-roll-reveal! "GAME" #{:dice})
+        (is (deref scheduled 1000 false))
+        (is (= [["GAME" #{:dice} true]
+                ["GAME" #{:dice} false]]
+               @broadcasts))))))
 
 (deftest http-command-errors-return-an-error-fragment
   (with-redefs-fn

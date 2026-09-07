@@ -90,7 +90,7 @@
      (map render-die values)
      (render-die nil))])
 
-(defn- dice-panel [game-id player-id {:keys [latest-roll inventories]}]
+(defn- dice-panel [game-id player-id {:keys [latest-roll inventories rolling?]}]
   (let [omen-count (count (filter #(= 2 (:card_type_id %)) inventories))
         values (:values latest-roll)
         total (reduce + 0 values)
@@ -108,16 +108,23 @@
       [:input {:type "hidden" :name "roll-type" :value "HAUNT"}]
       [:button.wide {:type "submit"}
        (str "Haunt roll (" omen-count " omen" (when (not= omen-count 1) "s") ")")])
-     [:div.dice-result
-      (dice-row (take 4 values))
-      (dice-row (take 4 (drop 4 values)))
-      [:strong {:class (when-not (seq values) "placeholder")}
-       (str "Total: " total)]
-      [:span
-       {:class (str (when (< total omen-count) "haunt ")
-                    (when-not haunt? "placeholder"))
-        :aria-hidden (when-not haunt? true)}
-       (if (< total omen-count) "Haunt time!" "No haunt")]]]))
+     (if rolling?
+       [:div.dice-result.rolling {:role "status"}
+        (dice-row nil)
+        (dice-row nil)
+        [:strong.placeholder "Total: 0"]
+        [:span.placeholder "No haunt"]
+        [:strong.rolling-label "Rolling..."]]
+       [:div.dice-result
+        (dice-row (take 4 values))
+        (dice-row (take 4 (drop 4 values)))
+        [:strong {:class (when-not (seq values) "placeholder")}
+         (str "Total: " total)]
+        [:span
+         {:class (str (when (< total omen-count) "haunt ")
+                      (when-not haunt? "placeholder"))
+          :aria-hidden (when-not haunt? true)}
+         (if (< total omen-count) "Haunt time!" "No haunt")]])]))
 
 (defn- draw-panel [game-id player-id]
   [:section#draw-panel.panel {:aria-label "Cards and monsters"}
