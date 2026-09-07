@@ -39,23 +39,25 @@ The production container also accepts `DB_HOST`, `DB_NAME`, `DB_USER`, and
 `DB_PASSWORD` separately and runs the shared Liquibase migrations before
 starting.
 
-Creating or joining a lobby gives the browser an unguessable membership token
-in a signed and encrypted, HTTP-only session cookie. When the host starts the
-game, each browser exchanges that membership for its permanent player binding.
-The cookie is used for page loads, command requests, and event streams, survives
-server restarts after that exchange, and cannot be changed into another player
-binding by the browser. The server always verifies that the selected player
-belongs to the game.
+In production, creating or joining a lobby gives the browser an unguessable
+membership token in a signed and encrypted, HTTP-only session cookie. When the
+host starts the game, each browser exchanges that membership for its permanent
+player binding. The cookie is used for page loads, command requests, and event
+streams, survives server restarts after that exchange, and cannot be changed
+into another player binding by the browser. The server always verifies that the
+selected player belongs to the game.
 
 Waiting lobbies are intentionally process-local, as they were in the original
 implementation. A deploy or restart abandons a lobby that has not started yet;
 started games and player sessions are durable.
 
-When the app is not running in production, loopback requests instead receive
-links with a `player-id` query parameter. The parameter is carried into command
-URLs and the event stream, making it possible to play as different people in
-ordinary local tabs. The override is disabled in production even when a reverse
-proxy makes the incoming connection appear local.
+When the app is not running in production, each loopback lobby participant and
+game player is instead identified by an unguessable query token scoped to that
+tab's URL. The host's displayed share link omits their token, so opening it in
+another ordinary tab shows the join form for a new player. Lobby start,
+navigation into the game, command URLs, and event streams preserve the
+appropriate tab identity. These overrides are disabled in production even when
+a reverse proxy makes the incoming connection appear local.
 
 The **Viewing** control in the bottom bar is independent of that identity. It
 can inspect any player's traits and inventory without changing who the tab is

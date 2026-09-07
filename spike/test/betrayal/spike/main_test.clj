@@ -143,11 +143,41 @@
                :game-name "Betrayal"
                :host-token "host-token"
                :players [{:token "host-token" :name "Alex"}]}
-        host-html (#'main/render-lobby-state lobby "host-token")
-        guest-html (#'main/render-lobby-state lobby nil)]
+        host-html (#'main/render-lobby-state lobby "host-token" nil)
+        guest-html (#'main/render-lobby-state lobby nil nil)]
     (is (re-find #"href=\"/lobbies/ABCDEF\"" host-html))
     (is (re-find #"action=\"/lobbies/ABCDEF/players\"" guest-html))
     (is (re-find #"Your name" guest-html))))
+
+(deftest local-lobby-identities-are-scoped-to-the-tab-url
+  (let [lobby {:id "ABCDEF"
+               :host-token "host-token"
+               :players [{:token "host-token" :name "Alex"}
+                         {:token "guest-token" :name "Blair"}]}
+        lobbies (atom {"ABCDEF" lobby})]
+    (with-redefs-fn
+      {#'main/lobbies lobbies}
+      (fn []
+        (testing "a shared cookie does not identify a local tab"
+          (is (nil? (#'main/lobby-token
+                     {:remote-addr "127.0.0.1"
+                      :session {:lobby-ids {"ABCDEF" "host-token"}}}
+                     "ABCDEF"))))
+        (testing "the tab's query token identifies its lobby participant"
+          (is (= "guest-token"
+                 (#'main/lobby-token
+                  {:remote-addr "127.0.0.1"
+                   :params {:lobby-player "guest-token"}
+                   :session {:lobby-ids {"ABCDEF" "host-token"}}}
+                  "ABCDEF"))))
+        (testing "a local redirect carries identity in the URL, not the cookie"
+          (let [response (#'main/lobby-redirect
+                          {:remote-addr "127.0.0.1" :session {}}
+                          "ABCDEF"
+                          "guest-token")]
+            (is (= "/lobbies/ABCDEF?lobby-player=guest-token"
+                   (get-in response [:headers "Location"])))
+            (is (nil? (:session response)))))))))
 
 (deftest starts-a-game-and-preserves-lobby-player-bindings
   (let [host-token "host-token"
@@ -194,6 +224,27 @@
           (is (= 303 (:status response)))
           (is (= "/games/ABCDEF" (get-in response [:headers "Location"])))
           (is (= 8 (get-in response [:session :player-ids "ABCDEF"]))))))))
+
+(deftest local-lobby-entry-preserves-the-tab-specific-game-player
+  (let [lobbies
+        (atom {"ABCDEF"
+               {:id "ABCDEF"
+                :started? true
+                :players [{:token "guest-token" :name "Blair"}]
+                :player-ids {"guest-token" 8}}})]
+    (with-redefs-fn
+      {#'main/lobbies lobbies}
+      (fn []
+        (let [response
+              (#'main/enter-game
+               {:remote-addr "127.0.0.1"
+                :params {:lobby-player "guest-token"}
+                :session {}}
+               "ABCDEF")]
+          (is (= 303 (:status response)))
+          (is (= "/games/ABCDEF?player-id=8"
+                 (get-in response [:headers "Location"])))
+          (is (nil? (:session response))))))))
 
 (deftest formats-html-as-an-sse-data-message
   (is (= "data: <div>\ndata: updated\ndata: </div>\n\n"

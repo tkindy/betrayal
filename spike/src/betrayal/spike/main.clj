@@ -353,13 +353,24 @@
         (recur)
         id))))
 
-(defn- lobby-token [request lobby-id]
-  (get-in request [:session :lobby-ids lobby-id]))
-
 (defn- lobby-member [lobby token]
   (some #(when (= token (:token %)) %) (:players lobby)))
 
-(defn- render-lobby-state [lobby token]
+(defn- debug-lobby-token [request lobby-id]
+  (when (local-request? request)
+    (let [token (get-in request [:params :lobby-player])
+          lobby (get @lobbies lobby-id)]
+      (when (lobby-member lobby token) token))))
+
+(defn- lobby-token [request lobby-id]
+  (if (local-request? request)
+    (debug-lobby-token request lobby-id)
+    (get-in request [:session :lobby-ids lobby-id])))
+
+(defn- with-lobby-debug-token [url debug-token]
+  (str url (when debug-token (str "?lobby-player=" debug-token))))
+
+(defn- render-lobby-state [lobby token debug-token]
   (let [member (lobby-member lobby token)
         host? (= token (:host-token lobby))]
     (str
@@ -368,13 +379,20 @@
        [:div#action-error-region.action-error {:hidden true}]
        (cond
          (:started? lobby)
-         [:div {:data-game-url (str "/lobbies/" (:id lobby) "/enter")}
+         [:div
+          {:data-game-url
+           (with-lobby-debug-token
+            (str "/lobbies/" (:id lobby) "/enter")
+            debug-token)}
           [:p "Game started. Joining…"]]
 
          member
          [:div
           [:p "Share "
-           [:a {:href (str "/lobbies/" (:id lobby))} "this lobby link"]
+           [:a {:href (str "/lobbies/" (:id lobby))
+                :target "_blank"
+                :rel "noopener"}
+            "this lobby link"]
            " with the other players. Lobby code: "
            [:strong (:id lobby)]]
           [:h2 "Lobby"]
@@ -382,14 +400,18 @@
            (for [player (:players lobby)]
              [:li (:name player)])]
           (when host?
-            [:form {:method "post"
-                    :action (str "/lobbies/" (:id lobby) "/start")
-                    :hx-post (str "/lobbies/" (:id lobby) "/start")
+            (let [start-url
+                  (with-lobby-debug-token
+                   (str "/lobbies/" (:id lobby) "/start")
+                   debug-token)]
+              [:form {:method "post"
+                    :action start-url
+                    :hx-post start-url
                     :hx-swap "none"
                     :hx-disable "find button"}
              [:button {:type "submit"
                        :disabled (> (count (:players lobby)) 6)}
-              "Start game"]])]
+                "Start game"]]))]
 
          :else
          [:div
@@ -402,15 +424,20 @@
 
 (defn- lobby-page [request lobby-id]
   (when-let [lobby (get @lobbies lobby-id)]
-    (page
-     (str (:game-name lobby) " — Lobby")
-     [:main.index.lobby
-      [:a {:href "/"} "‹ Home"]
-      [:h1 "Game lobby"]
-      [:div {:hx-sse:connect (str "/lobbies/" lobby-id "/events")
-             :hx-swap "none"}
-       (h/raw (render-lobby-state
-               lobby (lobby-token request lobby-id)))]])))
+    (let [debug-token (debug-lobby-token request lobby-id)
+          token (lobby-token request lobby-id)]
+      (page
+       (str (:game-name lobby) " — Lobby")
+       [:main.index.lobby
+        [:a {:href "/"} "‹ Home"]
+        [:h1 "Game lobby"]
+        [:div
+         {:hx-sse:connect
+          (with-lobby-debug-token
+           (str "/lobbies/" lobby-id "/events")
+           debug-token)
+          :hx-swap "none"}
+         (h/raw (render-lobby-state lobby token debug-token))]]))))
 
 (defn- broadcast-lobby! [lobby-id]
   (when-let [lobby (get @lobbies lobby-id)]
@@ -421,8 +448,20 @@
                            (h/html
                             [:hx-partial
                              {:hx-target "#lobby-state" :hx-swap "outerHTML"}
-                             (h/raw (render-lobby-state lobby (:token client)))])))
+                             (h/raw
+                              (render-lobby-state
+                               lobby (:token client) (:debug-token client)))])))
              false))))
+
+(defn- lobby-redirect [request lobby-id token]
+  (let [debug-token (when (local-request? request) token)]
+    (cond->
+     (-> (response/redirect
+          (with-lobby-debug-token (str "/lobbies/" lobby-id) debug-token))
+         (assoc :status 303))
+      (not debug-token)
+      (assoc :session
+             (assoc-in (:session request) [:lobby-ids lobby-id] token)))))
 
 (defn- create-lobby [request]
   (try
@@ -436,10 +475,7 @@
                  :host-token token
                  :players [player]}]
       (swap! lobbies assoc lobby-id lobby)
-      (-> (response/redirect (str "/lobbies/" lobby-id))
-          (assoc :status 303)
-          (assoc :session
-                 (assoc-in (:session request) [:lobby-ids lobby-id] token))))
+      (lobby-redirect request lobby-id token))
     (catch Exception exception
       (-> (response/response (ex-message exception))
           (response/status 422)))))
@@ -473,10 +509,7 @@
                (reset! joined? true)
                (update lobby :players conj {:token token :name player-name})))
       (when @joined? (broadcast-lobby! lobby-id))
-      (-> (response/redirect (str "/lobbies/" lobby-id))
-          (assoc :status 303)
-          (assoc :session
-                 (assoc-in (:session request) [:lobby-ids lobby-id] token))))
+      (lobby-redirect request lobby-id token))
     (catch Exception exception
       (-> (response/response (ex-message exception))
           (response/status 422)))))
@@ -484,6 +517,7 @@
 (defn- start-game [request lobby-id]
   (try
     (let [token (lobby-token request lobby-id)
+          debug-token (debug-lobby-token request lobby-id)
           lobby (get @lobbies lobby-id)]
       (when-not lobby
         (throw (ex-info "Lobby not found" {})))
@@ -498,7 +532,11 @@
                (assoc lobby :started? true :player-ids player-ids))
         (broadcast-lobby! lobby-id)
         {:status 204
-         :headers {"HX-Redirect" (str "/lobbies/" lobby-id "/enter")}}))
+         :headers
+         {"HX-Redirect"
+          (with-lobby-debug-token
+           (str "/lobbies/" lobby-id "/enter")
+           debug-token)}}))
     (catch Exception exception
       (-> (response/response
            (str (h/html
@@ -510,25 +548,34 @@
 
 (defn- enter-game [request lobby-id]
   (let [token (lobby-token request lobby-id)
+        debug-token (debug-lobby-token request lobby-id)
         lobby (get @lobbies lobby-id)
         player-id (get-in lobby [:player-ids token])]
     (if-not player-id
       (response/not-found "Your player is not part of this game")
-      (-> (response/redirect (str "/games/" lobby-id))
-          (assoc :status 303)
-          (assoc :session
-                 (assoc-in (:session request)
-                           [:player-ids lobby-id]
-                           player-id))))))
+      (cond->
+       (-> (response/redirect
+            (str "/games/" lobby-id
+                 (when debug-token (str "?player-id=" player-id))))
+           (assoc :status 303))
+        (not debug-token)
+        (assoc :session
+               (assoc-in (:session request)
+                         [:player-ids lobby-id]
+                         player-id))))))
 
 (defn- lobby-events [request lobby-id]
   (if-let [lobby (get @lobbies lobby-id)]
-    (let [token (lobby-token request lobby-id)]
+    (let [token (lobby-token request lobby-id)
+          debug-token (debug-lobby-token request lobby-id)]
       (as-channel
        request
        {:on-open
         (fn [channel]
-          (swap! lobby-streams assoc channel {:lobby-id lobby-id :token token})
+          (swap! lobby-streams assoc channel
+                 {:lobby-id lobby-id
+                  :token token
+                  :debug-token debug-token})
           (send! channel
                  {:status 200
                   :headers {"Content-Type" "text/event-stream"
@@ -541,7 +588,7 @@
                    (h/html
                     [:hx-partial
                      {:hx-target "#lobby-state" :hx-swap "outerHTML"}
-                     (h/raw (render-lobby-state lobby token))])))
+                     (h/raw (render-lobby-state lobby token debug-token))])))
                  false))
         :on-close
         (fn [channel _]
