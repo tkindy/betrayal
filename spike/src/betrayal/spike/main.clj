@@ -101,17 +101,13 @@
       (session-player-id request game-id)))
 
 (defn- board-page [request game-id]
-  (if-let [game (db/game @ds game-id)]
+  (if (db/game @ds game-id)
     (let [state (db/game-state @ds game-id)
           debug-player-id (debug-player-id request game-id)
           player-id (or debug-player-id
                         (session-player-id request game-id))]
       (page
        "Betrayal"
-       [:header.game-header
-        [:a {:href "/"} "‹ Games"]
-        [:strong (:name game)]
-        [:span "SVG + server-rendered fragments"]]
        [:main#board-viewport
         (cond-> {:data-game-id game-id
                  :hx-sse:connect

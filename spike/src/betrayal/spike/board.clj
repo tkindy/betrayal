@@ -180,7 +180,7 @@
 (defn render-board
   ([board] (render-board board nil nil))
   ([board error] (render-board board nil error))
-  ([board game-id error]
+  ([board game-id _error]
    (let [board (enrich-board board)
          players (grouped (:players board))
          monsters (grouped (:monsters board))
@@ -190,8 +190,6 @@
        [:div#board-state
         {:data-min-x min-x :data-max-x max-x
          :data-min-y min-y :data-max-y max-y}
-        [:div.status {:class (when error "error")}
-         (or error "Drag rooms, players, and monsters. Drag empty space to pan; scroll to zoom.")]
         [:svg#board {:aria-label "Betrayal game board"}
          [:g#world
           [:g.rooms
