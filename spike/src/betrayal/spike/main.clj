@@ -3,11 +3,12 @@
   (:require [betrayal.spike.board :as board]
             [betrayal.spike.db :as db]
             [betrayal.spike.ui :as ui]
-            [compojure.core :refer [GET POST defroutes]]
+            [clojure.data.json :as json]
+            [compojure.core :refer [GET defroutes]]
             [compojure.route :as route]
             [hiccup2.core :as h]
             [hiccup.page :refer [html5]]
-            [ring.adapter.jetty :refer [run-jetty]]
+            [org.httpkit.server :refer [as-channel run-server send!]]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [ring.middleware.params :refer [wrap-params]]
             [ring.util.response :as response]))
@@ -53,37 +54,19 @@
   (or (some-> value parse-long)
       (throw (ex-info (str label " must be an integer") {}))))
 
-(defn- move [{:keys [params]} game-id kind entity-id]
-  (let [kind (keyword kind)]
-    (try
-      (when-not (#{:room :player :monster} kind)
-        (throw (ex-info "Unknown piece type" {})))
-      (db/move! @ds game-id kind
-                (parse-int entity-id "Piece ID")
-                (parse-int (:grid-x params) "Grid X")
-                (parse-int (:grid-y params) "Grid Y"))
-      (-> (response/response (board/render-board (db/board @ds game-id)))
-          (response/content-type "text/html"))
-      (catch Exception exception
-        (-> (response/response
-             (board/render-board
-              (db/board @ds game-id)
-              (or (ex-message exception) "Could not move that piece")))
-            (response/status 422)
-            (response/content-type "text/html"))))))
-
 (defn- selected-player-id [params]
   (some-> (:selected-player params) parse-long))
 
-(defn- render-fragments
-  ([game-id selected] (render-fragments game-id selected nil))
-  ([game-id selected error]
-   (let [state (db/game-state @ds game-id)]
-     (str
-      (h/html
-       [:div#game-fragments
-        (h/raw (board/render-board state))
-        (h/raw (ui/render-ui game-id state selected error))])))))
+(defn- render-fragments-from-state [game-id state selected error]
+  (str
+   (h/html
+    [:div#game-fragments
+     (h/raw (board/render-board state))
+     (h/raw (ui/render-ui game-id state selected error))])))
+
+(defn- render-fragments [game-id selected error]
+  (render-fragments-from-state
+   game-id (db/game-state @ds game-id) selected error))
 
 (defn- run-action! [game-id action params]
   (case action
@@ -142,19 +125,76 @@
 
     (throw (ex-info "Unknown game action" {}))))
 
-(defn- game-action [{:keys [params]} game-id action]
-  (let [selected (selected-player-id params)]
-    (try
-      (run-action! game-id action params)
-      (-> (response/response (render-fragments game-id selected))
-          (response/content-type "text/html"))
-      (catch Exception exception
-        (-> (response/response
-             (render-fragments game-id selected
-                               (or (ex-message exception)
-                                   "That action could not be completed")))
-            (response/status 422)
-            (response/content-type "text/html"))))))
+(defn- run-move! [game-id {:keys [kind id grid-x grid-y]}]
+  (let [kind (keyword kind)]
+    (when-not (#{:room :player :monster} kind)
+      (throw (ex-info "Unknown piece type" {})))
+    (db/move! @ds game-id kind
+              (parse-int id "Piece ID")
+              (parse-int grid-x "Grid X")
+              (parse-int grid-y "Grid Y"))))
+
+(defonce ^:private clients (atom {}))
+
+(defn- send-state! [channel error]
+  (when-let [{:keys [game-id selected-player]} (get @clients channel)]
+    (send! channel (render-fragments game-id selected-player error))))
+
+(defn- broadcast-state! [game-id]
+  (let [state (db/game-state @ds game-id)]
+    (doseq [[channel client] @clients
+            :when (= game-id (:game-id client))]
+      (send! channel
+             (render-fragments-from-state
+              game-id state (:selected-player client) nil)))))
+
+(defn- remember-selected-player! [channel params]
+  (when-let [selected (selected-player-id params)]
+    (swap! clients assoc-in [channel :selected-player] selected)))
+
+(defn- receive-command! [channel message]
+  (try
+    (let [{:keys [command action] :as params}
+          (json/read-str message :key-fn keyword)
+          game-id (get-in @clients [channel :game-id])]
+      (remember-selected-player! channel params)
+      (case command
+        "select-player"
+        (send-state! channel nil)
+
+        "move"
+        (do
+          (run-move! game-id params)
+          (broadcast-state! game-id))
+
+        "action"
+        (do
+          (run-action! game-id action params)
+          (broadcast-state! game-id))
+
+        (throw (ex-info "Unknown WebSocket command" {}))))
+    (catch Exception exception
+      (send-state! channel
+                   (or (ex-message exception)
+                       "That command could not be completed")))))
+
+(defn- game-websocket [request game-id]
+  (if-not (db/game @ds game-id)
+    (response/not-found "Game not found")
+    (let [initial-player (selected-player-id (:params request))]
+      (as-channel
+       request
+       {:on-open
+        (fn [channel]
+          (swap! clients assoc channel {:game-id game-id
+                                        :selected-player initial-player})
+          (send-state! channel nil))
+        :on-receive
+        (fn [channel message]
+          (receive-command! channel message))
+        :on-close
+        (fn [channel _]
+          (swap! clients dissoc channel))}))))
 
 (defroutes routes
   (GET "/" [] (-> (response/response (index-page))
@@ -163,16 +203,8 @@
     (if-let [body (board-page game-id)]
       (-> (response/response body) (response/content-type "text/html"))
       (response/not-found "Game not found")))
-  (GET "/games/:game-id/fragments" [game-id selected-player]
-    (-> (response/response
-         (render-fragments game-id (some-> selected-player parse-long)))
-        (response/content-type "text/html")))
-  (POST "/games/:game-id/move/:kind/:entity-id"
-    [game-id kind entity-id :as request]
-    (move request game-id kind entity-id))
-  (POST "/games/:game-id/actions/:action"
-    [game-id action :as request]
-    (game-action request game-id action))
+  (GET "/games/:game-id/socket" [game-id :as request]
+    (game-websocket request game-id))
   (route/resources "/assets" {:root "public"})
   (route/not-found "Not found"))
 
@@ -183,7 +215,7 @@
 
 (defn -main [& _]
   (let [port (parse-long (or (System/getenv "PORT") "8081"))]
-    ;; Force configuration errors to appear before Jetty starts.
+    ;; Force configuration errors to appear before the server starts.
     @ds
     (println (str "Board spike running at http://localhost:" port))
-    (run-jetty #'app {:port port :join? true})))
+    (run-server #'app {:port port})))

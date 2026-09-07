@@ -37,15 +37,14 @@ containing those files.
 - Add and move monsters.
 - Flip, rotate, skip, and place rooms from the room stack.
 
-Drops are posted to the Clojure server. The server validates and persists the
-move, renders a new `#board-state` fragment, and the browser swaps that fragment
-without resetting its local viewport. Invalid drops return an error in the
-same authoritative fragment.
+The browser sends drops and game-control commands over one WebSocket connection.
+The server validates and persists each command, then broadcasts new board and
+UI fragments to every client connected to that game. The browser swaps those
+fragments without resetting its local viewport. Invalid commands return an
+authoritative fragment with an error only to the initiating client.
 
 Game controls are rendered as overlays so the board viewport remains stable
-when server fragments update. Real-time multiplayer broadcasts are intentionally
-left out; the prototype focuses on the rendering and interaction boundary before
-adding the WebSocket transport.
+when server fragments update.
 
 ## Test
 

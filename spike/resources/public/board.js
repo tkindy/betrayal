@@ -6,10 +6,43 @@
   let view = { x: 0, y: 0, scale: 1 };
   let gesture = null;
   let initialized = false;
+  let socket;
+  let reconnectTimer;
+  const commandQueue = [];
 
   const svg = () => viewport.querySelector("#board");
   const world = () => viewport.querySelector("#world");
   const roomDetails = () => viewport.querySelector("#room-details");
+  const selectedPlayer = () =>
+    viewport.querySelector("#game-ui")?.dataset.selectedPlayer || "";
+
+  function connect() {
+    const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+    socket = new WebSocket(
+      `${protocol}//${location.host}/games/${viewport.dataset.gameId}/socket` +
+        `?selected-player=${encodeURIComponent(selectedPlayer())}`
+    );
+    socket.addEventListener("open", () => {
+      clearTimeout(reconnectTimer);
+      while (commandQueue.length) {
+        socket.send(JSON.stringify(commandQueue.shift()));
+      }
+    });
+    socket.addEventListener("message", (event) => {
+      swapGameFragments(event.data);
+    });
+    socket.addEventListener("close", () => {
+      reconnectTimer = setTimeout(connect, 1000);
+    });
+  }
+
+  function sendCommand(command) {
+    if (socket?.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify(command));
+    } else {
+      commandQueue.push(command);
+    }
+  }
 
   function applyView() {
     world()?.setAttribute(
@@ -158,7 +191,7 @@
     }
   }
 
-  async function finishGesture(event) {
+  function finishGesture(event) {
     if (!gesture || gesture.pointerId !== event.pointerId) return;
     const completed = gesture;
     gesture = null;
@@ -180,33 +213,15 @@
       gridY = Math.floor(point.y / CELL_SIZE);
     }
 
-    const { gameId } = viewport.dataset;
     const { kind, id } = completed.element.dataset;
-    const body = new URLSearchParams({
-      "grid-x": gridX,
-      "grid-y": gridY,
+    sendCommand({
+      command: "move",
+      kind,
+      id,
+      "grid-x": String(gridX),
+      "grid-y": String(gridY),
+      "selected-player": selectedPlayer(),
     });
-    try {
-      const response = await fetch(`/games/${gameId}/move/${kind}/${id}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body,
-      });
-      const html = await response.text();
-      viewport.querySelector("#board-state").outerHTML = html;
-      applyView();
-    } catch (_) {
-      completed.element.setAttribute(
-        "transform",
-        `translate(${completed.origin.x} ${completed.origin.y})`
-      );
-      if (completed.companion) {
-        completed.companion.setAttribute(
-          "transform",
-          `translate(${completed.companionOrigin.x} ${completed.companionOrigin.y})`
-        );
-      }
-    }
   }
 
   function swapGameFragments(html) {
@@ -222,48 +237,37 @@
     }
   }
 
-  async function submitGameAction(event) {
+  function submitGameAction(event) {
     const form = event.target.closest("form.game-action");
     if (!form) return;
     event.preventDefault();
     const button = event.submitter;
     if (button) button.disabled = true;
-    try {
-      const response = await fetch(form.action, {
-        method: "POST",
-        body: new URLSearchParams(new FormData(form)),
-      });
-      swapGameFragments(await response.text());
-    } finally {
-      if (button?.isConnected) button.disabled = false;
-    }
+    sendCommand({
+      command: "action",
+      action: form.dataset.action,
+      ...Object.fromEntries(new FormData(form)),
+    });
   }
 
-  async function selectPlayer(event) {
+  function selectPlayer(event) {
     if (!event.target.matches("#player-select")) return;
-    const { gameId } = viewport.dataset;
-    const response = await fetch(
-      `/games/${gameId}/fragments?selected-player=${event.target.value}`
-    );
-    swapGameFragments(await response.text());
+    sendCommand({
+      command: "select-player",
+      "selected-player": event.target.value,
+    });
   }
 
-  async function placeRoom(event) {
+  function placeRoom(event) {
     const spot = event.target.closest(".open-spot");
     if (!spot) return;
-    const { gameId } = viewport.dataset;
-    const selectedPlayer =
-      viewport.querySelector("#game-ui")?.dataset.selectedPlayer || "";
-    const body = new URLSearchParams({
-      "selected-player": selectedPlayer,
+    sendCommand({
+      command: "action",
+      action: "place-room",
+      "selected-player": selectedPlayer(),
       "grid-x": spot.dataset.gridX,
       "grid-y": spot.dataset.gridY,
     });
-    const response = await fetch(`/games/${gameId}/actions/place-room`, {
-      method: "POST",
-      body,
-    });
-    swapGameFragments(await response.text());
   }
 
   viewport.addEventListener("pointerdown", beginGesture);
@@ -298,4 +302,5 @@
     if (!initialized) fitBoard();
   });
   fitBoard();
+  connect();
 })();

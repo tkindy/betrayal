@@ -63,8 +63,8 @@
 (defn- action-form [game-id selected-player-id action attributes & children]
   (into
    [:form.game-action
-    (merge {:method "post"
-            :action (str "/games/" game-id "/actions/" action)}
+    (merge {:action "#"
+            :data-action action}
            attributes)
     [:input {:type "hidden" :name "selected-player"
              :value selected-player-id}]]

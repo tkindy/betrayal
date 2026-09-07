@@ -32,12 +32,12 @@
 (deftest renders-game-controls
   (let [html (ui/render-ui "ABC123" state 7 nil)]
     (testing "dice, card, monster, trait, and inventory actions are present"
-      (is (re-find #"/actions/roll" html))
-      (is (re-find #"/actions/draw-card" html))
-      (is (re-find #"/actions/add-monster" html))
-      (is (re-find #"/actions/flip-room-stack" html))
-      (is (re-find #"/actions/set-trait" html))
-      (is (re-find #"/actions/discard-held-card" html)))
+      (is (re-find #"data-action=\"roll\"" html))
+      (is (re-find #"data-action=\"draw-card\"" html))
+      (is (re-find #"data-action=\"add-monster\"" html))
+      (is (re-find #"data-action=\"flip-room-stack\"" html))
+      (is (re-find #"data-action=\"set-trait\"" html))
+      (is (re-find #"data-action=\"discard-held-card\"" html)))
     (testing "the latest roll and held card are rendered"
       (is (re-find #"Total: 3" html))
       (is (re-find #"Chainsaw" html)))))
