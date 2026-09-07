@@ -235,7 +235,6 @@ a {
 
 .room-cell {
   cursor: move;
-  filter: drop-shadow(0 5px 5px rgb(0 0 0 / 45%));
 }
 
 .room-background {
