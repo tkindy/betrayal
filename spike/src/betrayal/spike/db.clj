@@ -5,19 +5,21 @@
 
 (def ^:private options {:builder-fn rs/as-unqualified-lower-maps})
 
-(defn datasource []
-  (if-let [url (System/getenv "JDBC_DATABASE_URL")]
-    (jdbc/get-datasource {:jdbcUrl url})
-    (if-let [host (System/getenv "DB_HOST")]
-      (jdbc/get-datasource
-       {:jdbcUrl (format "jdbc:postgresql://%s:5432/%s"
-                         host (or (System/getenv "DB_NAME") "betrayal"))
-        :username (System/getenv "DB_USER")
-        :password (System/getenv "DB_PASSWORD")})
-      (throw
-       (ex-info
-        "Set JDBC_DATABASE_URL, or set DB_HOST, DB_NAME, DB_USER, and DB_PASSWORD"
-        {})))))
+(defn datasource
+  ([] (datasource #(System/getenv %)))
+  ([getenv]
+   (if-let [url (getenv "JDBC_DATABASE_URL")]
+     (jdbc/get-datasource {:jdbcUrl url})
+     (if-let [host (getenv "DB_HOST")]
+       (jdbc/get-datasource
+        {:jdbcUrl (format "jdbc:postgresql://%s:5432/%s"
+                          host (or (getenv "DB_NAME") "betrayal"))
+         :user (getenv "DB_USER")
+         :password (getenv "DB_PASSWORD")})
+       (throw
+        (ex-info
+         "Set JDBC_DATABASE_URL, or set DB_HOST, DB_NAME, DB_USER, and DB_PASSWORD"
+         {}))))))
 
 (defn games [ds]
   (let [games (jdbc/execute! ds
