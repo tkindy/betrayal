@@ -1,0 +1,164 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, sans-serif;
+  background: #15120f;
+  color: #f8f0dc;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+a {
+  color: #efc56a;
+}
+
+.index {
+  margin: 4rem auto;
+  max-width: 42rem;
+  padding: 0 1rem;
+}
+
+.index li {
+  margin: 0.75rem 0;
+}
+
+.game-header {
+  align-items: center;
+  background: #211d18;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr auto 1fr;
+  height: 3rem;
+  padding: 0 1rem;
+}
+
+.game-header span {
+  color: #aaa095;
+  font-size: 0.8rem;
+  justify-self: end;
+}
+
+#board-viewport {
+  height: calc(100vh - 3rem);
+  overflow: hidden;
+  position: relative;
+  touch-action: none;
+}
+
+#board-state,
+#board {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.status {
+  background: rgb(20 18 16 / 88%);
+  border-radius: 0 0 0.4rem 0;
+  color: #c9c0b6;
+  font-size: 0.8rem;
+  left: 0;
+  padding: 0.45rem 0.7rem;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  z-index: 1;
+}
+
+.status.error {
+  background: #7a2929;
+  color: white;
+}
+
+#board {
+  background-color: #15120f;
+  background-image:
+    linear-gradient(#211d18 1px, transparent 1px),
+    linear-gradient(90deg, #211d18 1px, transparent 1px);
+  background-size: 32px 32px;
+  cursor: grab;
+}
+
+#board.panning {
+  cursor: grabbing;
+}
+
+.room-cell {
+  cursor: move;
+  filter: drop-shadow(0 5px 5px rgb(0 0 0 / 45%));
+}
+
+.room-background {
+  fill: #ddd1b3;
+  stroke: #493d2c;
+  stroke-width: 5;
+}
+
+.door {
+  stroke: #15120f;
+  stroke-width: 13;
+}
+
+.room-name,
+.features {
+  fill: #211d18;
+  font-weight: 700;
+  pointer-events: none;
+  text-anchor: middle;
+}
+
+.room-name {
+  font-size: 17px;
+}
+
+.features {
+  fill: #7a2929;
+  font-size: 14px;
+}
+
+.token {
+  cursor: move;
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 55%));
+}
+
+.player circle {
+  stroke: white;
+  stroke-width: 3;
+}
+
+.monster rect {
+  fill: #e98b2a;
+  stroke: white;
+  stroke-width: 2;
+}
+
+.monster text {
+  fill: #211d18;
+  font-size: 14px;
+  font-weight: 800;
+  pointer-events: none;
+  text-anchor: middle;
+}
+
+.dragging {
+  opacity: 0.72;
+}
+
+@media (max-width: 600px) {
+  .game-header {
+    grid-template-columns: auto 1fr;
+  }
+
+  .game-header strong {
+    justify-self: end;
+  }
+
+  .game-header span {
+    display: none;
+  }
+}
