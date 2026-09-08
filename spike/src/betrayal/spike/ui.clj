@@ -268,7 +268,7 @@
                           :value card-type-id}]
                  [:input {:type "hidden" :name "card-definition-id"
                           :value definition-id}]])
-              [:button {:type "submit"} "Pull"]))
+              [:button.danger {:type "submit"} "Pull"]))
            (when floor
              [:button
               {:type "button"

@@ -199,6 +199,7 @@
         "the form handles Enter and the input handles live search")
     (is (re-find #"refreshSearch from:body" html))
     (is (re-find #"/actions/pull-room\?player-id=7" results-html))
+    (is (re-find #"class=\"danger\" type=\"submit\">Pull<" results-html))
     (is (re-find #"name=\"room-definition-id\"[^>]+value=\"3\""
                  results-html))
     (is (re-find #"/actions/pull-card\?player-id=7" card-results-html))
