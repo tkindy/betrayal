@@ -698,9 +698,19 @@
         (cond-> {:http-only true :same-site :lax}
           (production?) (assoc :secure true))})))
 
-(defn -main [& _]
-  (let [port (parse-long (or (System/getenv "PORT") "8081"))]
+(defn- server-port [getenv production?]
+  (if-let [port (getenv "PORT")]
+    (parse-long port)
+    (if production? 8081 0)))
+
+(defn start-server! [handler]
+  (let [port (server-port #(System/getenv %) (production?))]
     ;; Force configuration errors to appear before the server starts.
     @ds
-    (println (str "Betrayal running at http://localhost:" port))
-    (run-server #'app {:port port})))
+    (let [server (run-server handler {:port port})
+          local-port (:local-port (meta server))]
+      (println (str "Betrayal running at http://localhost:" local-port))
+      server)))
+
+(defn -main [& _]
+  (start-server! #'app))

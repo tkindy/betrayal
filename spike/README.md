@@ -14,20 +14,27 @@ From `spike/`, set the same JDBC URL used by the API:
 
 ```sh
 export JDBC_DATABASE_URL='jdbc:postgresql://localhost:5432/postgres?user=postgres&password=mysecretpassword'
-clojure -M:run
+clojure -M:dev
 ```
 
-Then open <http://localhost:8081>. Create a lobby and share its six-letter code,
-or choose an existing game and player to open its board. The lobby host can
-start a game with one to six players. Starting creates the players, starting
-rooms, shuffled room stack, and shuffled card stacks in one database
-transaction.
+Then open the dynamically assigned URL printed by the server. Create a lobby and
+share its six-letter code, or choose an existing game and player to open its
+board. The lobby host can start a game with one to six players. Starting creates
+the players, starting rooms, shuffled room stack, and shuffled card stacks in one
+database transaction.
 
-Set `PORT` to use a port other than 8081. The shared room, character, card, and
-schema definitions live in the repository's `resources/` directory. Development
-reads them there, and the standalone build packages them on the application
-classpath. Alternatively, set `BETRAYAL_DEFINITIONS_DIR` to a directory
-containing the CSV definition files.
+The development server reloads changed Clojure namespaces before the next HTTP
+request. Refresh the page or perform an HTMX action to pick up server-side
+changes without restarting the process. Compile errors are reported by the
+request that triggers the reload; after correcting the source, retry the
+request. Changes to JavaScript and CSS require a browser refresh.
+
+Set `PORT` to use a specific port. Without it, local development asks the
+operating system for an available port; production retains 8081 as its fallback.
+The shared room, character, card, and schema definitions live in the
+repository's `resources/` directory. Development reads them there, and the
+standalone build packages them on the application classpath. Alternatively, set
+`BETRAYAL_DEFINITIONS_DIR` to a directory containing the CSV definition files.
 
 Build a standalone jar from `spike/` with:
 

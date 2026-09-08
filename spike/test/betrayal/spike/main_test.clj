@@ -12,6 +12,15 @@
                                  (#{7 8} player-id)))}
     f))
 
+(deftest chooses-server-port
+  (testing "an explicitly configured port is always used"
+    (is (= 9000 (#'main/server-port {"PORT" "9000"} false)))
+    (is (= 9000 (#'main/server-port {"PORT" "9000"} true))))
+  (testing "local development asks the operating system for an open port"
+    (is (= 0 (#'main/server-port {} false))))
+  (testing "production retains its fixed fallback"
+    (is (= 8081 (#'main/server-port {} true)))))
+
 (deftest resolves-local-player-overrides
   (with-player-stubs
     (fn []

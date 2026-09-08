@@ -132,9 +132,9 @@ echo "Running database migrations..."
 (cd "$ROOT/api" && ./gradlew update)
 
 if [ "$spike_only" = true ]; then
-    echo "Starting Clojure app at http://localhost:8081..."
+    echo "Starting Clojure app (URL will be printed below)..."
     cd "$ROOT/spike"
-    exec clojure -M:run
+    exec clojure -M:dev
 fi
 
 echo "Starting API at http://localhost:8080..."
@@ -145,8 +145,8 @@ echo "Starting UI at http://localhost:3000..."
 (cd "$ROOT/ui" && exec npm start) &
 ui_pid=$!
 
-echo "Starting Clojure app at http://localhost:8081..."
-(cd "$ROOT/spike" && exec clojure -M:run) &
+echo "Starting Clojure app (URL will be printed below)..."
+(cd "$ROOT/spike" && exec clojure -M:dev) &
 clojure_pid=$!
 
 echo "Local development is running. Press Ctrl-C to stop all applications."
