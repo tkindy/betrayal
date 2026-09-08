@@ -377,8 +377,15 @@ a {
 
 .open-spot rect {
   fill: rgb(239 197 106 / 16%);
+}
+
+.open-spot-border {
+  fill: none;
+  pointer-events: none;
   stroke: #efc56a;
   stroke-dasharray: 10 7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   stroke-width: 4;
 }
 

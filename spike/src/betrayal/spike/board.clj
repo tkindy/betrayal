@@ -118,6 +118,23 @@
                      location)))
            sort))))
 
+(defn- spot-edges [[grid-x grid-y]]
+  [[[grid-x grid-y] [(inc grid-x) grid-y]]
+   [[grid-x grid-y] [grid-x (inc grid-y)]]
+   [[(inc grid-x) grid-y] [(inc grid-x) (inc grid-y)]]
+   [[grid-x (inc grid-y)] [(inc grid-x) (inc grid-y)]]])
+
+(defn- placement-border-path [spots]
+  (->> spots
+       (mapcat spot-edges)
+       distinct
+       sort
+       (map (fn [[[start-x start-y] [end-x end-y]]]
+              (format "M %d %d L %d %d"
+                      (* start-x cell-size) (* start-y cell-size)
+                      (* end-x cell-size) (* end-y cell-size))))
+       (str/join " ")))
+
 (defn bounds [{:keys [rooms]}]
   (if (seq rooms)
     (let [xs (map :grid_x rooms)
@@ -362,8 +379,11 @@
                   :data-grid-y grid-y
                   :transform (format "translate(%d %d)"
                                      (* grid-x cell-size) (* grid-y cell-size))}
-                 [:rect {:width cell-size :height cell-size :rx 8}]
+                 [:rect {:width cell-size :height cell-size}]
                  [:text {:x (/ cell-size 2) :y (/ cell-size 2)} "Place room"]])
+              (when-let [spots (seq (get open-spots-by-floor key))]
+                [:path.open-spot-border
+                 {:d (placement-border-path spots)}])
               (for [room-data rooms]
                 [:g {:class "room-cell draggable"
                      :aria-label (str (:name room-data)

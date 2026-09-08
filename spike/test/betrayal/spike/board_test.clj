@@ -18,6 +18,13 @@
     (is (empty? (board/open-spots
                  (assoc-in state [:room-stack :flipped] false))))))
 
+(deftest draws-shared-placement-borders-once
+  (let [path (#'board/placement-border-path [[0 0] [1 0]])]
+    (is (= 7 (count (re-seq #"M " path)))
+        "two neighboring squares have seven unique edges")
+    (is (= 1 (count (re-seq #"M 180 0 L 180 180" path)))
+        "the shared edge occurs only once")))
+
 (deftest calculates-board-bounds
   (is (= {:min-x -8 :max-x 10 :min-y -8 :max-y 12}
          (board/bounds
