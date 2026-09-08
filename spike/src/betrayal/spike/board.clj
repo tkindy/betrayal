@@ -346,7 +346,7 @@
            :aria-expanded "false"
            :aria-controls "floor-navigation"}
           "Floors"]
-         (map #(minimap % players monsters) (reverse layout))]
+         (map #(minimap % players monsters) layout)]
         [:svg#board {:aria-label "Betrayal game board"}
          [:g#world
           (for [{:keys [key rooms]} layout]
