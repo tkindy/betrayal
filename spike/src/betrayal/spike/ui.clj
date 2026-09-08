@@ -285,13 +285,17 @@
      (render-trait game-id player-id player trait))])
 
 (defn- inventory-panel [game-id player-id players player]
-  [:div.inventory {:id (str "player-" (:id player) "-inventory")}
-   [:h2 "Inventory"]
-   (if (seq (:cards player))
+  (let [cards (:cards player)]
+    [:div.inventory {:id (str "player-" (:id player) "-inventory")}
+     [:h2 "Inventory"]
      [:div.inventory-cards
-      (for [card (:cards player)]
-        (inventory-card game-id player-id players player card))]
-     [:i "Inventory empty"])])
+      (if (seq cards)
+        (for [card cards]
+          (inventory-card game-id player-id players player card))
+        [:details.inventory-card.placeholder {:aria-hidden true}
+         [:summary]])
+      (when-not (seq cards)
+        [:i.inventory-empty "Inventory empty"])]]))
 
 (defn- character-panel [game-id player-id players]
   (let [selected-player-id

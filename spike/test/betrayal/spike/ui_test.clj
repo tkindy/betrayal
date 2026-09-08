@@ -65,6 +65,12 @@
         "hidden dice rows preserve the result area's normal height")
     (is (= 2 (count (re-seq #"class=\"die placeholder\"" html))))))
 
+(deftest renders-empty-inventory-with-a-card-sized-placeholder
+  (let [html (ui/render-ui "ABC123" (assoc state :inventories []) 7 nil)]
+    (is (re-find #"class=\"inventory-cards\"" html))
+    (is (re-find #"aria-hidden=\"aria-hidden\" class=\"inventory-card placeholder\"" html))
+    (is (re-find #"class=\"inventory-empty\">Inventory empty<" html))))
+
 (deftest reuses-board-room-rendering-in-picker
   (let [flipped (assoc-in state [:room-stack :flipped] true)
         html (ui/render-ui "ABC123" flipped 7 nil)]
