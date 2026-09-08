@@ -658,8 +658,8 @@
       ?.setAttribute("aria-expanded", String(event.type === "focusin"));
   }
 
-  function jumpToRoom(event) {
-    const button = event.target.closest("[data-jump-room]");
+  function jumpToLocation(event) {
+    const button = event.target.closest("[data-jump-location]");
     if (!button) return;
     const floor = button.dataset.floor;
     const gridX = Number(button.dataset.gridX);
@@ -744,7 +744,7 @@
   viewport.addEventListener("change", selectViewedPlayer);
   viewport.addEventListener("click", closeInventoryCard);
   viewport.addEventListener("click", openGameSearch);
-  viewport.addEventListener("click", jumpToRoom);
+  viewport.addEventListener("click", jumpToLocation);
   viewport.addEventListener("click", changeBoardView);
   viewport.addEventListener("click", changeFloor);
   viewport.addEventListener("click", toggleFloorDrawer);

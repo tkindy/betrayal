@@ -221,6 +221,14 @@
                 " from rooms where \"gameId\" = ?")
            game-id]
           options))
+   :players
+   (jdbc/execute!
+    connectable
+    [(str "select name, \"characterId\" as character_id,"
+          " \"gridX\" as grid_x, \"gridY\" as grid_y"
+          " from players where \"gameId\" = ? order by id")
+     game-id]
+    options)
    :rooms-in-stack
    (into #{}
          (map :room_def_id)

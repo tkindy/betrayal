@@ -147,16 +147,20 @@
                                room rooms]
                            [[(:grid_x room) (:grid_y room)] key])))
         floor-labels (into {} (map (juxt :key :label) board/floors))
-        matches?
-        (fn [definition]
-          (str/includes? (str/lower-case (:name definition)) query))
+        matches-name?
+        (fn [value]
+          (str/includes? (str/lower-case value) query))
         result-rank
-        (fn [{display-name :name :keys [kind]}]
-          (let [display-name (str/lower-case display-name)]
-            [(cond
-               (= display-name query) 0
-               (str/starts-with? display-name query) 1
-               :else 2)
+        (fn [{display-name :name :keys [kind match-names]}]
+          (let [display-name (str/lower-case display-name)
+                match-names (map str/lower-case
+                                 (or (seq match-names) [display-name]))]
+            [(apply min
+                    (map #(cond
+                            (= % query) 0
+                            (str/starts-with? % query) 1
+                            :else 2)
+                         match-names))
              display-name
              (clojure.core/name kind)]))]
     (if (str/blank? query)
@@ -164,7 +168,7 @@
       (->>
        (concat
         (for [[definition-id definition] @board/room-definitions
-              :when (matches? definition)
+              :when (matches-name? (:name definition))
               :let [room (get rooms definition-id)
                     in-stack? (contains? (:rooms-in-stack locations)
                                          definition-id)
@@ -172,6 +176,7 @@
                     floor-label (get floor-labels floor-key)]]
           (cond->
            {:kind :room
+            :type-label "Room"
             :definition-id definition-id
             :name (:name definition)
             :location
@@ -185,8 +190,28 @@
             (assoc :floor floor-key
                    :grid-x (:grid_x room)
                    :grid-y (:grid_y room))))
+        (for [player (:players locations)
+              :let [character
+                    (get @board/character-definitions (:character_id player))
+                    player-name (:name player)
+                    character-name (:name character)]
+              :when (or (matches-name? player-name)
+                        (matches-name? character-name))
+              :let [floor-key
+                    (get floor-at [(:grid_x player) (:grid_y player)])
+                    floor-label (get floor-labels floor-key)]]
+          {:kind :player
+           :type-label "Player"
+           :name (str character-name " — " player-name)
+           :match-names [player-name character-name]
+           :location
+           (str "In the house"
+                (when floor-label (str " — " floor-label)))
+           :floor floor-key
+           :grid-x (:grid_x player)
+           :grid-y (:grid_y player)})
         (for [[[card-type-id definition-id] definition] @card-definitions
-              :when (matches? definition)
+              :when (matches-name? (:name definition))
               :let [card-key [card-type-id definition-id]
                     type (get card-types card-type-id)
                     holders (get (:held-cards locations) card-key)
@@ -228,7 +253,7 @@
           [:li.search-result
            [:div
             [:strong name]
-            [:span.search-result-kind (if (= :room kind) "Room" type-label)]
+            [:span.search-result-kind type-label]
             [:small location]]
            (when pullable?
              (action-form
@@ -247,7 +272,7 @@
            (when floor
              [:button
               {:type "button"
-               :data-jump-room true
+               :data-jump-location true
                :data-floor floor
                :data-grid-x grid-x
                :data-grid-y grid-y
@@ -268,8 +293,8 @@
       :hx-target "#search-results"
       :hx-swap "innerHTML"}
      [:input#game-search-input
-      {:type "search" :name "q" :placeholder "Find a room or card…"
-       :aria-label "Find a room or card" :autocomplete "off"
+      {:type "search" :name "q" :placeholder "Find a room, card, or player…"
+       :aria-label "Find a room, card, or player" :autocomplete "off"
        :hx-get (str "/games/" game-id "/search")
        :hx-trigger "input changed delay:200ms, search, refreshSearch from:body"
        :hx-target "#search-results"

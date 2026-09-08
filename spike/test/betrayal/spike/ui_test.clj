@@ -104,6 +104,7 @@
   (let [locations
         {:rooms-in-house
          {0 {:room_def_id 0 :grid_x 4 :grid_y 3}}
+         :players [{:name "Alex" :character_id 0 :grid_x 4 :grid_y 3}]
          :rooms-in-stack #{3}
          ;; Search must not expose whether a stacked room is the current tile.
          :current-room {:room_def_id 3 :flipped false}
@@ -113,9 +114,12 @@
          :cards-in-stacks #{[2 0]}}
         room (first (ui/search-results locations " nursery "))
         house-room (first (ui/search-results locations "Entrance Hall"))
+        player (first (ui/search-results locations "alex"))
+        character (first (ui/search-results locations "Ox Bellows"))
         card (first (ui/search-results locations "Chainsaw"))]
     (testing "stacked rooms have the same status and action when currently on top"
       (is (= {:kind :room
+              :type-label "Room"
               :definition-id 3
               :name "Nursery"
               :location "In the room stack"
@@ -125,6 +129,13 @@
       (is (= "In the house — Ground" (:location house-room)))
       (is (= {:floor "ground" :grid-x 4 :grid-y 3}
              (select-keys house-room [:floor :grid-x :grid-y]))))
+    (testing "players can be found by player or character name"
+      (is (= player character))
+      (is (= "Ox Bellows — Alex" (:name player)))
+      (is (= "Player" (:type-label player)))
+      (is (= "In the house — Ground" (:location player)))
+      (is (= {:floor "ground" :grid-x 4 :grid-y 3}
+             (select-keys player [:floor :grid-x :grid-y]))))
     (testing "held cards report their owner and cannot be pulled"
       (is (= "Chainsaw" (:name card)))
       (is (= "Held by Alex" (:location card)))
@@ -137,6 +148,7 @@
          (ui/render-search-results
           "ABC123" 7
           {:rooms-in-house {}
+           :players []
            :rooms-in-stack #{3}
            :held-cards {}
            :drawn-card nil
@@ -147,6 +159,7 @@
          (ui/render-search-results
           "ABC123" 7
           {:rooms-in-house {}
+           :players []
            :rooms-in-stack #{}
            :held-cards {}
            :drawn-card nil
@@ -158,11 +171,24 @@
           "ABC123" 7
           {:rooms-in-house
            {0 {:room_def_id 0 :grid_x 4 :grid_y 3}}
+           :players []
            :rooms-in-stack #{}
            :held-cards {}
            :drawn-card nil
            :cards-in-stacks #{}}
-          "Entrance Hall"))]
+          "Entrance Hall"))
+        player-results-html
+        (str
+         (ui/render-search-results
+          "ABC123" 7
+          {:rooms-in-house
+           {0 {:room_def_id 0 :grid_x 4 :grid_y 3}}
+           :players [{:name "Alex" :character_id 0 :grid_x 4 :grid_y 3}]
+           :rooms-in-stack #{}
+           :held-cards {}
+           :drawn-card nil
+           :cards-in-stacks #{}}
+          "Alex"))]
     (is (re-find #"id=\"game-search-input\"" html))
     (is (re-find #"data-game-search-toggle" html))
     (is (re-find #"id=\"search-popover\"" html))
@@ -179,11 +205,16 @@
     (is (re-find #"name=\"card-type\"[^>]+value=\"2\"" card-results-html))
     (is (re-find #"name=\"card-definition-id\"[^>]+value=\"0\""
                  card-results-html))
-    (is (re-find #"data-jump-room" house-results-html))
+    (is (re-find #"data-jump-location" house-results-html))
     (is (re-find #"data-floor=\"ground\"" house-results-html))
     (is (re-find #"data-grid-x=\"4\"" house-results-html))
     (is (re-find #"data-grid-y=\"3\"" house-results-html))
-    (is (not (re-find #"/actions/pull-room" house-results-html)))))
+    (is (not (re-find #"/actions/pull-room" house-results-html)))
+    (is (re-find #">Ox Bellows — Alex<" player-results-html))
+    (is (re-find #">Player<" player-results-html))
+    (is (re-find #"data-jump-location" player-results-html))
+    (is (re-find #"aria-label=\"Jump to Ox Bellows — Alex\""
+                 player-results-html))))
 
 (deftest can-view-every-players-character-sheet
   (let [other-player (assoc (first (:players state))
