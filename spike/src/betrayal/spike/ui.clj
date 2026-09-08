@@ -266,18 +266,18 @@
     (card-copy card)
     [:div.card-actions
      (action-form
-      game-id player-id "discard-held-card" {}
-      [:input {:type "hidden" :name "player-id" :value (:id player)}]
-      [:input {:type "hidden" :name "card-id" :value (:id card)}]
-      [:button.danger {:type "submit"} "Discard"])
-     (action-form
       game-id player-id "give-held-card" {:class "game-action inline-form"}
       [:input {:type "hidden" :name "player-id" :value (:id player)}]
       [:input {:type "hidden" :name "card-id" :value (:id card)}]
       [:select {:name "to-player-id" :aria-label "Give card to"}
        [:option {:value ""} "Give to…"]
        (player-options players (:id player))]
-      [:button {:type "submit"} "Give"])]]])
+      [:button {:type "submit"} "Give"])
+     (action-form
+      game-id player-id "discard-held-card" {}
+      [:input {:type "hidden" :name "player-id" :value (:id player)}]
+      [:input {:type "hidden" :name "card-id" :value (:id card)}]
+      [:button.danger {:type "submit"} "Discard"])]]])
 
 (defn- traits-panel [game-id player-id player]
   [:div.traits {:id (str "player-" (:id player) "-traits")}

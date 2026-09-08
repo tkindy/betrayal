@@ -873,6 +873,22 @@ a {
   margin-top: 0.8rem;
 }
 
+.inventory-popover .card-actions {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.card-actions .inline-form {
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+}
+
+.card-actions .inline-form select {
+  min-width: 0;
+  width: 100%;
+}
+
 .card-actions .discard-action {
   margin-left: auto;
 }
