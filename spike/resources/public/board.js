@@ -305,6 +305,41 @@
     )}px`;
   }
 
+  function renderRoomDescription(container, description) {
+    const lines = description
+      ? description.split(/\r?\n/).filter((line) => line.trim())
+      : ["No additional room rules."];
+    const content = document.createDocumentFragment();
+    let tableBody;
+
+    for (const line of lines) {
+      if (line === "<rollTable>") {
+        const table = document.createElement("table");
+        table.className = "roll-table";
+        tableBody = table.createTBody();
+        content.append(table);
+        continue;
+      }
+
+      if (!tableBody) {
+        const paragraph = document.createElement("p");
+        paragraph.textContent = line;
+        content.append(paragraph);
+        continue;
+      }
+
+      const [, targetText, outcome] = line.match(/^(\S+)\s{2,}(.*)$/);
+      const row = tableBody.insertRow();
+      const target = document.createElement("th");
+      target.scope = "row";
+      target.textContent = targetText;
+      row.append(target);
+      row.insertCell().textContent = outcome;
+    }
+
+    container.replaceChildren(content);
+  }
+
   function showRoomDetails(room) {
     clearTimeout(hideDetailsTimer);
     const details = roomDetails();
@@ -321,8 +356,10 @@
     if (playerCard) playerCard.hidden = true;
     details.querySelector(".room-details-name").textContent =
       room.dataset.roomName;
-    details.querySelector(".room-details-description").textContent =
-      room.dataset.description || "No additional room rules.";
+    renderRoomDescription(
+      details.querySelector(".room-details-description"),
+      room.dataset.description
+    );
     if (actionsAvailable) {
       details.querySelectorAll(".room-details-id").forEach((input) => {
         input.value = room.dataset.id;

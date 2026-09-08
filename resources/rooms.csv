@@ -36,6 +36,7 @@ id,name,floors,doors,features,description,barrier,barrierFeatures
 34,Vault,BUR,N,E,You can attempt a Knowledge roll of 6+ to open and empty the vault.,H,II
 35,Panic Room,BGUR,W,E,"When you exit, you may attempt a Speed roll of 3+. If you succeed, move to any room with a dumbwaiter.",,
 36,Mystic Elevator,BGUR,N,,"Once per turn, roll 2 dice and move this room next to any open door on:
+<rollTable>
 4  Any floor
 3  Upper floor
 2  Ground floor

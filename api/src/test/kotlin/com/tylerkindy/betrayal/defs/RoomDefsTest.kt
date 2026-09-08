@@ -19,5 +19,16 @@ class RoomDefsTest : DescribeSpec({
                 barrier = null
             )
         }
+
+        it("keeps roll tables readable as plain text") {
+            rooms[36]?.description shouldBe """
+                Once per turn, roll 2 dice and move this room next to any open door on:
+                4  Any floor
+                3  Upper floor
+                2  Ground floor
+                1  Basement
+                0  Basement, then take 1 die of physical damage
+            """.trimIndent()
+        }
     }
 })

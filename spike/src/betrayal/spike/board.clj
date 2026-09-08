@@ -374,7 +374,7 @@
         [:div#room-details
          {:role "dialog" :aria-hidden "true" :hidden true}
          [:strong.room-details-name]
-         [:p.room-details-description]
+         [:div.room-details-description]
          [:details.room-actions-menu
           [:summary {:aria-label "Room actions"} "⋯"]
           [:div.room-details-actions

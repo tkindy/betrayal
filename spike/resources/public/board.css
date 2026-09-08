@@ -231,6 +231,9 @@ a {
 .room-details-description {
   font-size: 0.9rem;
   line-height: 1.4;
+}
+
+.room-details-description p {
   margin: 0;
 }
 

@@ -43,6 +43,11 @@
     (is (= {:min-x 104 :max-x 106 :min-y 3 :max-y 4}
            (get-in layout ["upper" :bounds])))))
 
+(deftest room-roll-tables-have-an-explicit-placeholder
+  (let [description (:description (get @board/room-definitions 36))]
+    (is (re-find #"\n<rollTable>\n" description))
+    (is (re-find #"4  Any floor" description))))
+
 (deftest renders-an-svg-fragment
   (let [html (board/render-board
               {:rooms [{:id 1 :room_def_id 0 :grid_x 4 :grid_y 3 :rotation 0}]
@@ -80,6 +85,7 @@
     (testing "room details use the app hovercard rather than an SVG title"
       (is (re-find #"data-description=\"\"" html))
       (is (re-find #"id=\"room-details\"" html))
+      (is (re-find #"class=\"room-details-description\"" html))
       (is (re-find #"aria-label=\"Room actions\"" html))
       (is (re-find #">⋯</summary>" html))
       (is (re-find #"hx-post=\"/games//actions/rotate-room\"" html))

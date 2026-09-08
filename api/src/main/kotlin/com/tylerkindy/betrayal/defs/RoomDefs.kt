@@ -25,7 +25,8 @@ val rooms = CSVFormat.DEFAULT.builder().setNullString("").setHeader().build()
             floors = it["floors"].map(Floor.Companion::parse).toSet(),
             doors = it["doors"].map(Direction.Companion::parse).toSet(),
             features = it["features"]?.map(Feature.Companion::parse) ?: emptyList(),
-            description = it["description"],
+            // The legacy UI renders room rules as plain text.
+            description = it["description"]?.replace("\n<rollTable>\n", "\n"),
             barrier = parseBarrier(it["barrier"], it["barrierFeatures"])
         )
     }
