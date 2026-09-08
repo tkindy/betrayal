@@ -314,7 +314,7 @@
       (h/html
        [:div#board-state
         [:nav#floor-navigation.panel {:aria-label "Floors"}
-         (map minimap layout)]
+         (map minimap (reverse layout))]
         [:svg#board {:aria-label "Betrayal game board"}
          [:g#world
           (for [{:keys [key rooms]} layout]

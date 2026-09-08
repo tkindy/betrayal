@@ -61,7 +61,12 @@
       (is (= 4 (count (re-seq #"class=\"floor-canvas\"" html))))
       (is (re-find #"data-floor-select=\"ground\"" html))
       (is (re-find #"data-max-x=\"4\"" html))
-      (is (re-find #"data-min-x=\"4\"" html)))
+      (is (re-find #"data-min-x=\"4\"" html))
+      (is (< (.indexOf html "data-floor-select=\"basement\"")
+             (.indexOf html "data-floor-select=\"ground\"")
+             (.indexOf html "data-floor-select=\"upper\"")
+             (.indexOf html "data-floor-select=\"roof\""))
+          "floor miniatures are ordered from bottom to top"))
     (testing "tokens render in a separate layer above every room"
       (let [rooms-layer (.indexOf html "class=\"rooms\"")
             tokens-layer (.indexOf html "class=\"tokens\"")]
