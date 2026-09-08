@@ -22,6 +22,7 @@
 
   const CELL_SIZE = 180;
   const BOARD_DETAILS_DELAY = 150;
+  const FLOOR_DRAWER_EDGE_ZONE = 64;
   const viewport = document.querySelector("#board-viewport");
   if (!viewport) return;
 
@@ -504,7 +505,6 @@
     hideBoardDetails();
     const piece = event.target.closest(".draggable");
     if (piece) {
-      openFloorDrawer();
       const point = clientToWorld(event.clientX, event.clientY);
       const companion =
         piece.dataset.kind === "room"
@@ -556,6 +556,17 @@
     );
   }
 
+  function openFloorDrawerNearEdge(event) {
+    if (floorDrawerOpen || gesture?.type !== "piece") return;
+    const bounds = viewport.getBoundingClientRect();
+    if (
+      event.clientX >= bounds.left &&
+      event.clientX <= bounds.left + FLOOR_DRAWER_EDGE_ZONE
+    ) {
+      openFloorDrawer();
+    }
+  }
+
   function updateFloorHover(event) {
     if (gesture?.type !== "piece") return;
     const button = document
@@ -585,6 +596,7 @@
       return;
     }
     updateDragPreview(event);
+    openFloorDrawerNearEdge(event);
     updateFloorHover(event);
   }
 
