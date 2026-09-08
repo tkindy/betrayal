@@ -88,7 +88,8 @@ playing as.
 - Take a drawn card directly for the tab's acting player.
 - Search rooms and cards by name. Results show whether they are in the house,
   held by a player, currently drawn, or still in a stack; stacked results can be
-  pulled out and drawn directly.
+  pulled out and drawn directly, while rooms in the house can be centered in
+  their floor view.
 - Select a character and update their traits and inventory.
 - Add and move monsters.
 - Flip, rotate, skip, and place rooms from the room stack.

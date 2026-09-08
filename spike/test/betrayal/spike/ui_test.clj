@@ -112,6 +112,7 @@
          :drawn-card nil
          :cards-in-stacks #{[2 0]}}
         room (first (ui/search-results locations " nursery "))
+        house-room (first (ui/search-results locations "Entrance Hall"))
         card (first (ui/search-results locations "Chainsaw"))]
     (testing "stacked rooms have the same status and action when currently on top"
       (is (= {:kind :room
@@ -120,6 +121,10 @@
               :location "In the room stack"
               :pullable? true}
              room)))
+    (testing "rooms in the house include a client-side jump target"
+      (is (= "In the house — Ground" (:location house-room)))
+      (is (= {:floor "ground" :grid-x 4 :grid-y 3}
+             (select-keys house-room [:floor :grid-x :grid-y]))))
     (testing "held cards report their owner and cannot be pulled"
       (is (= "Chainsaw" (:name card)))
       (is (= "Held by Alex" (:location card)))
@@ -146,7 +151,18 @@
            :held-cards {}
            :drawn-card nil
            :cards-in-stacks #{[2 0]}}
-          "Bite"))]
+          "Bite"))
+        house-results-html
+        (str
+         (ui/render-search-results
+          "ABC123" 7
+          {:rooms-in-house
+           {0 {:room_def_id 0 :grid_x 4 :grid_y 3}}
+           :rooms-in-stack #{}
+           :held-cards {}
+           :drawn-card nil
+           :cards-in-stacks #{}}
+          "Entrance Hall"))]
     (is (re-find #"id=\"game-search-input\"" html))
     (is (re-find #"data-game-search-toggle" html))
     (is (re-find #"id=\"search-popover\"" html))
@@ -162,7 +178,12 @@
     (is (re-find #"/actions/pull-card\?player-id=7" card-results-html))
     (is (re-find #"name=\"card-type\"[^>]+value=\"2\"" card-results-html))
     (is (re-find #"name=\"card-definition-id\"[^>]+value=\"0\""
-                 card-results-html))))
+                 card-results-html))
+    (is (re-find #"data-jump-room" house-results-html))
+    (is (re-find #"data-floor=\"ground\"" house-results-html))
+    (is (re-find #"data-grid-x=\"4\"" house-results-html))
+    (is (re-find #"data-grid-y=\"3\"" house-results-html))
+    (is (not (re-find #"/actions/pull-room" house-results-html)))))
 
 (deftest can-view-every-players-character-sheet
   (let [other-player (assoc (first (:players state))

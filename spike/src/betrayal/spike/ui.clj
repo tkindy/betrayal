@@ -168,18 +168,23 @@
               :let [room (get rooms definition-id)
                     in-stack? (contains? (:rooms-in-stack locations)
                                          definition-id)
-                    floor (some->> [(:grid_x room) (:grid_y room)]
-                                   (get floor-at)
-                                   (get floor-labels))]]
-          {:kind :room
-           :definition-id definition-id
-           :name (:name definition)
-           :location
-           (cond
-             room (str "In the house" (when floor (str " — " floor)))
-             in-stack? "In the room stack"
-             :else "Not in play")
-           :pullable? in-stack?})
+                    floor-key (get floor-at [(:grid_x room) (:grid_y room)])
+                    floor-label (get floor-labels floor-key)]]
+          (cond->
+           {:kind :room
+            :definition-id definition-id
+            :name (:name definition)
+            :location
+            (cond
+              room (str "In the house"
+                        (when floor-label (str " — " floor-label)))
+              in-stack? "In the room stack"
+              :else "Not in play")
+            :pullable? in-stack?}
+            room
+            (assoc :floor floor-key
+                   :grid-x (:grid_x room)
+                   :grid-y (:grid_y room))))
         (for [[[card-type-id definition-id] definition] @card-definitions
               :when (matches? definition)
               :let [card-key [card-type-id definition-id]
@@ -218,7 +223,7 @@
        :else
        [:ul.search-results-list
         (for [{:keys [kind definition-id card-type-id type-label name
-                      location pullable?]}
+                      location pullable? floor grid-x grid-y]}
               results]
           [:li.search-result
            [:div
@@ -238,7 +243,16 @@
                           :value card-type-id}]
                  [:input {:type "hidden" :name "card-definition-id"
                           :value definition-id}]])
-              [:button {:type "submit"} "Pull"]))])]))))
+              [:button {:type "submit"} "Pull"]))
+           (when floor
+             [:button
+              {:type "button"
+               :data-jump-room true
+               :data-floor floor
+               :data-grid-x grid-x
+               :data-grid-y grid-y
+               :aria-label (str "Jump to " name)}
+              "Jump"])])]))))
 
 (defn- search-panel [game-id player-id]
   [:section#search-panel {:aria-label "Search game pieces"}

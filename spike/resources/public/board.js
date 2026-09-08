@@ -259,6 +259,32 @@
     if (gesture?.type === "piece") gesture.changedFloor = true;
   }
 
+  function centerRoom(key, gridX, gridY) {
+    if (!key || !Number.isFinite(gridX) || !Number.isFinite(gridY)) return;
+    if (key !== selectedFloor) {
+      if (selectedFloor) floorViews[selectedFloor] = { ...view };
+      selectedFloor = key;
+      syncFloorControls();
+      if (floorViews[key]) {
+        view = { ...floorViews[key] };
+      } else {
+        fitBoard();
+      }
+    }
+    const available = visibleBoardArea(CELL_SIZE, CELL_SIZE);
+    view.x =
+      available.left +
+      available.width / 2 -
+      (gridX + 0.5) * CELL_SIZE * view.scale;
+    view.y =
+      available.top +
+      available.height / 2 -
+      (gridY + 0.5) * CELL_SIZE * view.scale;
+    floorViews[key] = { ...view };
+    initialized = true;
+    applyView();
+  }
+
   function clientToWorld(clientX, clientY) {
     const point = new DOMPoint(clientX, clientY);
     return point.matrixTransform(world().getScreenCTM().inverse());
@@ -632,6 +658,22 @@
       ?.setAttribute("aria-expanded", String(event.type === "focusin"));
   }
 
+  function jumpToRoom(event) {
+    const button = event.target.closest("[data-jump-room]");
+    if (!button) return;
+    const floor = button.dataset.floor;
+    const gridX = Number(button.dataset.gridX);
+    const gridY = Number(button.dataset.gridY);
+    const panel = button.closest("#search-panel");
+    if (panel) {
+      clearGameSearch(panel);
+      panel
+        .querySelector("[data-game-search-toggle]")
+        ?.setAttribute("aria-expanded", "false");
+    }
+    centerRoom(floor, gridX, gridY);
+  }
+
   function selectViewedPlayer(event) {
     if (!event.target.matches("#player-select")) return;
     closeInventoryCards();
@@ -702,6 +744,7 @@
   viewport.addEventListener("change", selectViewedPlayer);
   viewport.addEventListener("click", closeInventoryCard);
   viewport.addEventListener("click", openGameSearch);
+  viewport.addEventListener("click", jumpToRoom);
   viewport.addEventListener("click", changeBoardView);
   viewport.addEventListener("click", changeFloor);
   viewport.addEventListener("click", toggleFloorDrawer);
