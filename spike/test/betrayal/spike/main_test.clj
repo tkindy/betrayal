@@ -1,7 +1,8 @@
 (ns betrayal.spike.main-test
   (:require [betrayal.spike.db :as db]
             [betrayal.spike.main :as main]
-            [clojure.test :refer [deftest is testing]]))
+            [clojure.test :refer [deftest is testing]]
+            [org.httpkit.server :as http]))
 
 (defn- with-player-stubs [f]
   (with-redefs-fn
@@ -12,14 +13,30 @@
                                  (#{7 8} player-id)))}
     f))
 
-(deftest chooses-server-port
+(deftest chooses-server-ports
   (testing "an explicitly configured port is always used"
-    (is (= 9000 (#'main/server-port {"PORT" "9000"} false)))
-    (is (= 9000 (#'main/server-port {"PORT" "9000"} true))))
-  (testing "local development asks the operating system for an open port"
-    (is (= 0 (#'main/server-port {} false))))
-  (testing "production retains its fixed fallback"
-    (is (= 8081 (#'main/server-port {} true)))))
+    (is (= [9000] (#'main/server-ports {"PORT" "9000"} false)))
+    (is (= [9000] (#'main/server-ports {"PORT" "9000"} true))))
+  (testing "local development tries sequential ports starting at 8080"
+    (is (= [8080 8081 8082]
+           (take 3 (#'main/server-ports {} false)))))
+  (testing "production uses port 80 by default"
+    (is (= [80] (#'main/server-ports {} true)))))
+
+(deftest starts-server-on-first-available-port
+  (let [attempted-ports (atom [])
+        server (with-meta (fn []) {:local-port 8082})]
+    (with-redefs [http/run-server
+                  (fn [_ {:keys [port]}]
+                    (swap! attempted-ports conj port)
+                    (if (< port 8082)
+                      (throw (java.net.BindException. "Address already in use"))
+                      server))]
+      (is (identical? server
+                      (#'main/start-server-on-port!
+                       (constantly {:status 200})
+                       [8080 8081 8082])))
+      (is (= [8080 8081 8082] @attempted-ports)))))
 
 (deftest resolves-local-player-overrides
   (with-player-stubs

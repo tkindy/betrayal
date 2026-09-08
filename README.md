@@ -37,8 +37,9 @@ The launcher can also be run directly with `./bin/dev`.
 This command selects an installed JDK 21, starts or reuses the local PostgreSQL
 container, installs the UI dependencies, runs the database migrations, and
 starts both implementations. Open the original UI at http://localhost:3000. The
-Clojure app prints its dynamically assigned local URL when it starts, and the
-Kotlin API listens on http://localhost:8080.
+Clojure app uses the first available port starting at 8080 and prints its local
+URL when it starts. The Kotlin API listens on http://localhost:8080, so the
+Clojure app normally uses http://localhost:8081 when both are running.
 
 Press Ctrl-C to stop the API, UI, and Clojure app. The PostgreSQL container
 remains running so its data is preserved for the next session.

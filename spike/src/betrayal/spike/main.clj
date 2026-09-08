@@ -1,6 +1,6 @@
 (ns betrayal.spike.main
   (:gen-class)
-  (:import [java.net InetAddress]
+  (:import [java.net BindException InetAddress]
            [java.security MessageDigest]
            [java.util UUID]
            [java.util.concurrent Executors ScheduledExecutorService
@@ -698,19 +698,34 @@
         (cond-> {:http-only true :same-site :lax}
           (production?) (assoc :secure true))})))
 
-(defn- server-port [getenv production?]
+(defn- server-ports [getenv production?]
   (if-let [port (getenv "PORT")]
-    (parse-long port)
-    (if production? 8081 0)))
+    [(parse-long port)]
+    (if production?
+      [80]
+      (range 8080 65536))))
+
+(defn- start-server-on-port! [handler ports]
+  (loop [[port & remaining] ports]
+    (let [result
+          (try
+            {:server (run-server handler {:port port})}
+            (catch BindException error
+              {:bind-error error}))]
+      (if-let [server (:server result)]
+        server
+        (if (seq remaining)
+          (recur remaining)
+          (throw (:bind-error result)))))))
 
 (defn start-server! [handler]
-  (let [port (server-port #(System/getenv %) (production?))]
-    ;; Force configuration errors to appear before the server starts.
-    @ds
-    (let [server (run-server handler {:port port})
-          local-port (:local-port (meta server))]
-      (println (str "Betrayal running at http://localhost:" local-port))
-      server)))
+  ;; Force configuration errors to appear before the server starts.
+  @ds
+  (let [ports (server-ports #(System/getenv %) (production?))
+        server (start-server-on-port! handler ports)
+        local-port (:local-port (meta server))]
+    (println (str "Betrayal running at http://localhost:" local-port))
+    server))
 
 (defn -main [& _]
   (start-server! #'app))
