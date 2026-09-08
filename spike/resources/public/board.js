@@ -82,6 +82,8 @@
     const gap = 16;
     const width = viewport.clientWidth;
     const height = viewport.clientHeight;
+    const rightEdge = Math.max(gap, width - gap);
+    const bottomEdge = Math.max(gap, height - gap);
     const obstacles = [
       "#floor-navigation",
       "#zoom-panel",
@@ -93,14 +95,20 @@
       .map((element) => {
         const bounds = element.getBoundingClientRect();
         return {
-          left: Math.max(0, bounds.left - viewportBounds.left - gap),
-          right: Math.min(width, bounds.right - viewportBounds.left + gap),
-          top: Math.max(0, bounds.top - viewportBounds.top - gap),
-          bottom: Math.min(height, bounds.bottom - viewportBounds.top + gap),
+          left: Math.max(gap, bounds.left - viewportBounds.left - gap),
+          right: Math.min(
+            rightEdge,
+            bounds.right - viewportBounds.left + gap
+          ),
+          top: Math.max(gap, bounds.top - viewportBounds.top - gap),
+          bottom: Math.min(
+            bottomEdge,
+            bounds.bottom - viewportBounds.top + gap
+          ),
         };
       });
-    const xs = new Set([gap, width - gap]);
-    const ys = new Set([gap, height - gap]);
+    const xs = new Set([gap, rightEdge]);
+    const ys = new Set([gap, bottomEdge]);
     obstacles.forEach((obstacle) => {
       xs.add(obstacle.left);
       xs.add(obstacle.right);
