@@ -610,6 +610,10 @@ a {
   display: block;
 }
 
+#search-panel:focus-within {
+  z-index: 1;
+}
+
 .search-form input {
   box-sizing: border-box;
   width: 100%;
@@ -1032,7 +1036,7 @@ a {
   align-items: flex-start;
   background: transparent;
   justify-content: flex-end;
-  padding: 1rem 16rem 1rem 1rem;
+  padding: 3.4rem 16rem 1rem 1rem;
   pointer-events: none;
 }
 
