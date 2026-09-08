@@ -34,6 +34,7 @@
   let hoveredFloor;
   let floorDrawerTimer;
   let floorDrawerOpen = false;
+  let minimizedDrawnCardId;
 
   const svg = () => viewport.querySelector("#board");
   const world = () => viewport.querySelector("#world");
@@ -674,6 +675,35 @@
     centerRoom(floor, gridX, gridY);
   }
 
+  function syncDrawnCard() {
+    const card = viewport.querySelector("#drawn-card-overlay");
+    if (!card) {
+      minimizedDrawnCardId = undefined;
+      return;
+    }
+    card.classList.toggle(
+      "minimized",
+      card.dataset.drawnCardId === minimizedDrawnCardId
+    );
+  }
+
+  function changeDrawnCardView(event) {
+    const button = event.target.closest("[data-drawn-card-view]");
+    if (!button) return;
+    const card = button.closest("#drawn-card-overlay");
+    minimizedDrawnCardId =
+      button.dataset.drawnCardView === "minimized"
+        ? card.dataset.drawnCardId
+        : undefined;
+    syncDrawnCard();
+    const nextControl = card.querySelector(
+      minimizedDrawnCardId
+        ? ".drawn-card-expand"
+        : ".drawn-card-minimize"
+    );
+    nextControl?.focus();
+  }
+
   function selectViewedPlayer(event) {
     if (!event.target.matches("#player-select")) return;
     closeInventoryCards();
@@ -745,6 +775,7 @@
   viewport.addEventListener("click", closeInventoryCard);
   viewport.addEventListener("click", openGameSearch);
   viewport.addEventListener("click", jumpToLocation);
+  viewport.addEventListener("click", changeDrawnCardView);
   viewport.addEventListener("click", changeBoardView);
   viewport.addEventListener("click", changeFloor);
   viewport.addEventListener("click", toggleFloorDrawer);
@@ -772,8 +803,10 @@
     syncFloorControls();
     applyView();
     syncCharacterPanel();
+    syncDrawnCard();
   });
   syncCharacterPanel();
+  syncDrawnCard();
   syncFloorDrawer();
   syncFloorControls();
   fitBoard();

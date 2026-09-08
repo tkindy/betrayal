@@ -83,8 +83,9 @@ playing as.
 - Drag a player or monster to another room.
 - Hover over a player token to see their character and current traits.
 - Roll ordinary or haunt dice.
-- Draw, inspect, give, and discard cards. One inventory card can be open at a
-  time; changing the viewed player closes it.
+- Draw, minimize, inspect, give, and discard cards. A minimized drawn card
+  remains visible without blocking the board. One inventory card can be open
+  at a time; changing the viewed player closes it.
 - Take a drawn card directly for the tab's acting player.
 - Search rooms, cards, players, and characters by name. Results show whether
   pieces are in the house, held by a player, currently drawn, or still in a

@@ -399,17 +399,19 @@
       [:tr [:th target] [:td outcome]])]])
 
 (defn- card-copy
-  [{:keys [name subtype condition flavor-text description roll-table]}]
-  [:div.card-copy
-   [:h3 name]
-   (when-not (str/blank? (or subtype condition))
-     [:p.card-subtitle (or subtype condition)])
-   (when-not (str/blank? flavor-text)
-     [:blockquote flavor-text])
-   (for [paragraph (str/split-lines description)]
-     (if (= paragraph "<rollTable>")
-       (render-roll-table roll-table)
-       [:p paragraph]))])
+  ([card] (card-copy card nil))
+  ([{:keys [name subtype condition flavor-text description roll-table]}
+    heading-attributes]
+   [:div.card-copy
+    [:h3 heading-attributes name]
+    (when-not (str/blank? (or subtype condition))
+      [:p.card-subtitle (or subtype condition)])
+    (when-not (str/blank? flavor-text)
+      [:blockquote flavor-text])
+    (for [paragraph (str/split-lines description)]
+      (if (= paragraph "<rollTable>")
+        (render-roll-table roll-table)
+        [:p paragraph]))]))
 
 (defn- player-options [players excluded-player-id]
   (for [player players :when (not= excluded-player-id (:id player))]
@@ -483,24 +485,37 @@
 (defn- drawn-card-overlay [game-id player-id players card]
   [:div#drawn-card-region
    (when card
-     [:div#drawn-card-overlay
-      [:section.drawn-card {:class (name (:key card))}
-       (card-copy card)
-       (when (= :omen (:key card))
-         [:strong "Make a haunt roll now."])
-       [:div.card-actions
-        (when player-id
-          (action-form game-id player-id "take-drawn-card" {}
-                       [:button {:type "submit"} "Take"]))
-        (action-form
-         game-id player-id "give-drawn-card" {:class "game-action inline-form"}
-         [:select {:name "player-id" :aria-label "Give card to"}
-          [:option {:value ""} "Give to…"]
-          (player-options players nil)]
-         [:button {:type "submit"} "Give"])
-        (action-form game-id player-id "discard-drawn-card"
-                     {:class "game-action discard-action"}
-                     [:button.danger {:type "submit"} "Discard"])]]])])
+     (let [heading-id (str "drawn-card-title-" (:id card))]
+       [:div#drawn-card-overlay {:data-drawn-card-id (:id card)}
+        [:section.drawn-card
+         {:class (name (:key card))
+          :aria-labelledby heading-id}
+         [:button.drawn-card-view.drawn-card-minimize
+          {:type "button"
+           :data-drawn-card-view "minimized"
+           :aria-label "Minimize drawn card"}
+          "Minimize"]
+         [:button.drawn-card-view.drawn-card-expand
+          {:type "button"
+           :data-drawn-card-view "expanded"
+           :aria-label "Expand drawn card"}
+          "Expand"]
+         (card-copy card {:id heading-id})
+         (when (= :omen (:key card))
+           [:strong "Make a haunt roll now."])
+         [:div.card-actions
+          (when player-id
+            (action-form game-id player-id "take-drawn-card" {}
+                         [:button {:type "submit"} "Take"]))
+          (action-form
+           game-id player-id "give-drawn-card" {:class "game-action inline-form"}
+           [:select {:name "player-id" :aria-label "Give card to"}
+            [:option {:value ""} "Give to…"]
+            (player-options players nil)]
+           [:button {:type "submit"} "Give"])
+          (action-form game-id player-id "discard-drawn-card"
+                       {:class "game-action discard-action"}
+                       [:button.danger {:type "submit"} "Discard"])]]]))])
 
 (defn- error-region [error]
   [:div#action-error-region

@@ -91,6 +91,12 @@
     (testing "the acting player can take a drawn card directly"
       (is (re-find #"/actions/take-drawn-card\?player-id=7" identified-html))
       (is (re-find #">Take<" identified-html))
+      (is (re-find #"data-drawn-card-id=\"10\"" identified-html))
+      (is (re-find #"data-drawn-card-view=\"minimized\"" identified-html))
+      (is (re-find #"aria-label=\"Minimize drawn card\"" identified-html))
+      (is (re-find #"data-drawn-card-view=\"expanded\"" identified-html))
+      (is (re-find #"aria-label=\"Expand drawn card\"" identified-html))
+      (is (re-find #"aria-labelledby=\"drawn-card-title-10\"" identified-html))
       (is (< (.indexOf identified-html "take-drawn-card")
              (.indexOf identified-html "give-drawn-card")
              (.indexOf identified-html "discard-drawn-card"))
