@@ -33,7 +33,7 @@
   let floorHoverTimer;
   let hoveredFloor;
   let floorDrawerTimer;
-  let floorDrawerOpen = true;
+  let floorDrawerOpen = false;
 
   const svg = () => viewport.querySelector("#board");
   const world = () => viewport.querySelector("#world");
@@ -691,5 +691,4 @@
   syncFloorDrawer();
   syncFloorControls();
   fitBoard();
-  scheduleFloorDrawerClose(2500);
 })();

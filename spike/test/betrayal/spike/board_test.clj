@@ -66,6 +66,7 @@
       (is (= 4 (count (re-seq #"class=\"floor-canvas\"" html))))
       (is (re-find #"id=\"floor-drawer-toggle\"" html))
       (is (re-find #"aria-controls=\"floor-navigation\"" html))
+      (is (re-find #"aria-expanded=\"false\"" html))
       (is (re-find #"data-floor-select=\"ground\"" html))
       (is (re-find #"data-max-x=\"4\"" html))
       (is (re-find #"data-min-x=\"4\"" html))

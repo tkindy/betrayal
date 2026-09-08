@@ -316,7 +316,7 @@
         [:nav#floor-navigation.panel {:aria-label "Floors"}
          [:button#floor-drawer-toggle
           {:type "button"
-           :aria-expanded "true"
+           :aria-expanded "false"
            :aria-controls "floor-navigation"}
           "Floors"]
          (map minimap (reverse layout))]
