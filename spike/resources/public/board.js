@@ -77,6 +77,90 @@
     });
   }
 
+  function visibleBoardArea(boardWidth, boardHeight) {
+    const viewportBounds = viewport.getBoundingClientRect();
+    const gap = 16;
+    const width = viewport.clientWidth;
+    const height = viewport.clientHeight;
+    const obstacles = [
+      "#floor-navigation",
+      "#zoom-panel",
+      "#game-sidebar",
+      "#character-panel",
+    ]
+      .map((selector) => viewport.querySelector(selector))
+      .filter((element) => element && element.getClientRects().length > 0)
+      .map((element) => {
+        const bounds = element.getBoundingClientRect();
+        return {
+          left: Math.max(0, bounds.left - viewportBounds.left - gap),
+          right: Math.min(width, bounds.right - viewportBounds.left + gap),
+          top: Math.max(0, bounds.top - viewportBounds.top - gap),
+          bottom: Math.min(height, bounds.bottom - viewportBounds.top + gap),
+        };
+      });
+    const xs = new Set([gap, width - gap]);
+    const ys = new Set([gap, height - gap]);
+    obstacles.forEach((obstacle) => {
+      xs.add(obstacle.left);
+      xs.add(obstacle.right);
+      ys.add(obstacle.top);
+      ys.add(obstacle.bottom);
+    });
+
+    let best;
+    const xValues = Array.from(xs).sort((a, b) => a - b);
+    const yValues = Array.from(ys).sort((a, b) => a - b);
+    for (const left of xValues) {
+      for (const right of xValues) {
+        if (right <= left) continue;
+        for (const top of yValues) {
+          for (const bottom of yValues) {
+            if (bottom <= top) continue;
+            const intersectsControl = obstacles.some(
+              (obstacle) =>
+                left < obstacle.right &&
+                right > obstacle.left &&
+                top < obstacle.bottom &&
+                bottom > obstacle.top
+            );
+            if (intersectsControl) continue;
+            const areaWidth = right - left;
+            const areaHeight = bottom - top;
+            const scale = Math.min(
+              1,
+              areaWidth / boardWidth,
+              areaHeight / boardHeight
+            );
+            const area = areaWidth * areaHeight;
+            if (
+              !best ||
+              scale > best.scale ||
+              (scale === best.scale && area > best.area)
+            ) {
+              best = {
+                left,
+                top,
+                width: areaWidth,
+                height: areaHeight,
+                scale,
+                area,
+              };
+            }
+          }
+        }
+      }
+    }
+    return (
+      best || {
+        left: gap,
+        top: gap,
+        width: Math.max(1, width - gap * 2),
+        height: Math.max(1, height - gap * 2),
+      }
+    );
+  }
+
   function fitBoard() {
     const state = floorButton();
     if (!state) return;
@@ -84,19 +168,21 @@
       Number(state.dataset.maxX) - Number(state.dataset.minX) + 1;
     const heightInCells =
       Number(state.dataset.maxY) - Number(state.dataset.minY) + 1;
-    const padding = 80;
-    const availableWidth = viewport.clientWidth - padding * 2;
-    const availableHeight = viewport.clientHeight - padding * 2;
+    const boardWidth = widthInCells * CELL_SIZE;
+    const boardHeight = heightInCells * CELL_SIZE;
+    const available = visibleBoardArea(boardWidth, boardHeight);
     view.scale = Math.min(
       1,
-      availableWidth / (widthInCells * CELL_SIZE),
-      availableHeight / (heightInCells * CELL_SIZE)
+      available.width / boardWidth,
+      available.height / boardHeight
     );
     view.x =
-      (viewport.clientWidth - widthInCells * CELL_SIZE * view.scale) / 2 -
+      available.left +
+      (available.width - boardWidth * view.scale) / 2 -
       Number(state.dataset.minX) * CELL_SIZE * view.scale;
     view.y =
-      (viewport.clientHeight - heightInCells * CELL_SIZE * view.scale) / 2 -
+      available.top +
+      (available.height - boardHeight * view.scale) / 2 -
       Number(state.dataset.minY) * CELL_SIZE * view.scale;
     initialized = true;
     applyView();
