@@ -234,7 +234,11 @@
     [:g {:class "room"}
      [:rect {:class "room-background" :width cell-size :height cell-size :rx 8}]
      (map door doors)
-     [:text {:class "room-name" :x (/ cell-size 2) :y 70} name]
+     [:foreignObject {:class "room-name-container"
+                      :width cell-size :height 56 :y 42}
+      [:div {:class "room-name"
+             :xmlns "http://www.w3.org/1999/xhtml"}
+       name]]
      (when-not (str/blank? all-features)
        [:text {:class "features" :x (/ cell-size 2) :y 105} all-features])
      (when (additional-rules? room)

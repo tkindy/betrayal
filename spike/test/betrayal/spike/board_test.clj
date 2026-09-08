@@ -136,3 +136,11 @@
     (is (re-find #">O I<" html))
     (is (not (re-find #"class=\"room-rules-icon\"" html)))
     (is (= 2 (count (re-seq #"class=\"door\"" html))))))
+
+(deftest insets-room-names-from-the-doors
+  (let [html (str (h/html
+                   (board/room-tile
+                    {:name "Pentagram Chamber" :doors "EW"})))]
+    (is (re-find #"<foreignObject class=\"room-name-container\"" html))
+    (is (re-find #"class=\"room-name\"" html))
+    (is (re-find #">Pentagram Chamber<" html))))

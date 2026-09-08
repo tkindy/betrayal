@@ -399,7 +399,6 @@ a {
   stroke-width: 13;
 }
 
-.room-name,
 .features {
   fill: #211d18;
   font-weight: 700;
@@ -407,8 +406,22 @@ a {
   text-anchor: middle;
 }
 
+.room-name-container {
+  pointer-events: none;
+}
+
 .room-name {
+  align-items: center;
+  box-sizing: border-box;
+  color: #211d18;
+  display: flex;
   font-size: 17px;
+  font-weight: 700;
+  height: 100%;
+  justify-content: center;
+  line-height: 1.05;
+  padding-inline: 1rem;
+  text-align: center;
 }
 
 .features {
