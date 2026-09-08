@@ -138,7 +138,6 @@
     const bottomEdge = Math.max(gap, height - gap);
     const obstacles = [
       "#floor-navigation",
-      "#search-panel",
       "#zoom-panel",
       "#game-sidebar",
       "#character-panel",
