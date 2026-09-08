@@ -449,6 +449,10 @@ a {
   z-index: 3;
 }
 
+#game-ui:has(#drawn-card-overlay) {
+  z-index: 6;
+}
+
 #game-ui button,
 #game-ui input,
 #game-ui select,
