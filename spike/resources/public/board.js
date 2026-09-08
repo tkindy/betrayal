@@ -172,10 +172,12 @@
   function fitBoard() {
     const state = floorButton();
     if (!state) return;
-    const widthInCells =
-      Number(state.dataset.maxX) - Number(state.dataset.minX) + 1;
-    const heightInCells =
-      Number(state.dataset.maxY) - Number(state.dataset.minY) + 1;
+    const minX = Number(state.dataset.minX) - 1;
+    const maxX = Number(state.dataset.maxX) + 1;
+    const minY = Number(state.dataset.minY) - 1;
+    const maxY = Number(state.dataset.maxY) + 1;
+    const widthInCells = maxX - minX + 1;
+    const heightInCells = maxY - minY + 1;
     const boardWidth = widthInCells * CELL_SIZE;
     const boardHeight = heightInCells * CELL_SIZE;
     const available = visibleBoardArea(boardWidth, boardHeight);
@@ -187,11 +189,11 @@
     view.x =
       available.left +
       (available.width - boardWidth * view.scale) / 2 -
-      Number(state.dataset.minX) * CELL_SIZE * view.scale;
+      minX * CELL_SIZE * view.scale;
     view.y =
       available.top +
       (available.height - boardHeight * view.scale) / 2 -
-      Number(state.dataset.minY) * CELL_SIZE * view.scale;
+      minY * CELL_SIZE * view.scale;
     initialized = true;
     applyView();
   }
