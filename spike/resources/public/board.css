@@ -349,11 +349,16 @@ a {
 }
 
 #board {
+  --grid-size: 32px;
+  --grid-x: 0px;
+  --grid-y: 0px;
+
   background-color: #15120f;
   background-image:
     linear-gradient(#211d18 1px, transparent 1px),
     linear-gradient(90deg, #211d18 1px, transparent 1px);
-  background-size: 32px 32px;
+  background-position: var(--grid-x) var(--grid-y);
+  background-size: var(--grid-size) var(--grid-size);
   cursor: grab;
 }
 

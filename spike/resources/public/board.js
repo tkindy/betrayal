@@ -21,6 +21,7 @@
   });
 
   const CELL_SIZE = 180;
+  const GRID_SIZE = 32;
   const BOARD_DETAILS_DELAY = 150;
   const FLOOR_DRAWER_EDGE_ZONE = 64;
   const viewport = document.querySelector("#board-viewport");
@@ -63,10 +64,14 @@
   }
 
   function applyView() {
+    const board = svg();
     world()?.setAttribute(
       "transform",
       `translate(${view.x} ${view.y}) scale(${view.scale})`
     );
+    board?.style.setProperty("--grid-x", `${view.x}px`);
+    board?.style.setProperty("--grid-y", `${view.y}px`);
+    board?.style.setProperty("--grid-size", `${GRID_SIZE * view.scale}px`);
   }
 
   function floorButton(key = selectedFloor) {
