@@ -81,13 +81,16 @@
     setFloorDrawer(true);
   }
 
-  function scheduleFloorDrawerClose() {
+  function scheduleFloorDrawerClose(delay = 650) {
     clearTimeout(floorDrawerTimer);
     floorDrawerTimer = setTimeout(() => {
       const navigation = viewport.querySelector("#floor-navigation");
-      if (gesture || navigation?.matches(":hover")) return;
+      if (gesture || navigation?.matches(":hover")) {
+        scheduleFloorDrawerClose(delay);
+        return;
+      }
       setFloorDrawer(false);
-    }, 2500);
+    }, delay);
   }
 
   function syncFloorControls() {
@@ -651,5 +654,5 @@
   syncFloorDrawer();
   syncFloorControls();
   fitBoard();
-  scheduleFloorDrawerClose();
+  scheduleFloorDrawerClose(2500);
 })();
