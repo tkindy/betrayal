@@ -614,6 +614,7 @@ a {
 }
 
 #character-panel {
+  backdrop-filter: none;
   bottom: 1rem;
   display: grid;
   gap: 0.65rem;
