@@ -74,7 +74,15 @@
              (.indexOf html "data-floor-select=\"ground\"")
              (.indexOf html "data-floor-select=\"upper\"")
              (.indexOf html "data-floor-select=\"roof\""))
-          "floor miniatures are ordered from bottom to top"))
+          "floor miniatures are ordered from bottom to top")
+      (is (= 1 (count (re-seq #"class=\"minimap-token minimap-player\"" html))))
+      (is (= 1 (count (re-seq #"class=\"minimap-token minimap-monster\"" html))))
+      (is (re-find #"minimap-player\" transform=\"translate\(4\.375 3\.5\)\""
+                   html))
+      (is (re-find #"minimap-monster\" transform=\"translate\(4\.625 3\.5\)\""
+                   html))
+      (is (not (re-find #"minimap-monster[^>]*>[^<]*<text" html))
+          "miniature monster icons omit their numbers"))
     (testing "tokens render in a separate layer above every room"
       (let [rooms-layer (.indexOf html "class=\"rooms\"")
             tokens-layer (.indexOf html "class=\"tokens\"")]

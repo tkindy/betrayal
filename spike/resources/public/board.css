@@ -164,10 +164,26 @@ a {
   width: 100%;
 }
 
-.floor-minimap rect {
+.floor-minimap .minimap-room {
   fill: #ddd1b3;
   stroke: #493d2c;
   stroke-width: 0.06;
+}
+
+.minimap-token {
+  filter: drop-shadow(0 0.03px 0.03px rgb(0 0 0 / 70%));
+  pointer-events: none;
+}
+
+.minimap-player circle {
+  stroke: white;
+  stroke-width: 0.04;
+}
+
+.minimap-monster rect {
+  fill: #e98b2a;
+  stroke: white;
+  stroke-width: 0.035;
 }
 
 .floor-canvas[hidden] {

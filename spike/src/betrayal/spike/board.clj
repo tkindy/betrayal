@@ -271,7 +271,24 @@
    [:text {:y 5} (:number monster)]
    [:title (str "Monster " (:number monster) " — drag to another room")]])
 
-(defn- minimap [{:keys [key label rooms bounds]}]
+(defn- minimap-token-position [index total]
+  (let [column-count (min total 3)
+        row-count (long (Math/ceil (/ total 3.0)))
+        row (quot index 3)
+        column (mod index 3)
+        tokens-in-row (min column-count (- total (* row 3)))]
+    [(+ 0.5 (* 0.25 (- column (/ (dec tokens-in-row) 2))))
+     (+ 0.5 (* 0.25 (- row (/ (dec row-count) 2))))]))
+
+(defn- minimap-token [kind entity index total grid-x grid-y]
+  (let [[x y] (minimap-token-position index total)]
+    [:g {:class (str "minimap-token minimap-" (name kind))
+         :transform (format "translate(%s %s)" (+ grid-x x) (+ grid-y y))}
+     (case kind
+       :player [:circle {:r 0.11 :fill (str/lower-case (:color entity))}]
+       :monster [:rect {:x -0.1 :y -0.1 :width 0.2 :height 0.2 :rx 0.035}])]))
+
+(defn- minimap [{:keys [key label rooms bounds]} players monsters]
   (let [{:keys [min-x max-x min-y max-y]} bounds
         padding 0.3
         width (+ 1 (- max-x min-x) (* 2 padding))
@@ -288,7 +305,17 @@
                         (- min-x padding) (- min-y padding) width height)
        :aria-hidden "true"}
       (for [{:keys [grid_x grid_y]} rooms]
-        [:rect {:x grid_x :y grid_y :width 1 :height 1 :rx 0.08}])]]))
+        [:rect.minimap-room
+         {:x grid_x :y grid_y :width 1 :height 1 :rx 0.08}])
+      (for [{:keys [grid_x grid_y]} rooms
+            :let [location [grid_x grid_y]
+                  room-players (get players location)
+                  room-monsters (get monsters location)
+                  entities (concat (map #(vector :player %) room-players)
+                                   (map #(vector :monster %) room-monsters))
+                  total (count entities)]
+            [index [kind entity]] (map-indexed vector entities)]
+        (minimap-token kind entity index total grid_x grid_y))]]))
 
 (defn render-board
   ([board] (render-board board nil nil))
@@ -319,7 +346,7 @@
            :aria-expanded "false"
            :aria-controls "floor-navigation"}
           "Floors"]
-         (map minimap (reverse layout))]
+         (map #(minimap % players monsters) (reverse layout))]
         [:svg#board {:aria-label "Betrayal game board"}
          [:g#world
           (for [{:keys [key rooms]} layout]
