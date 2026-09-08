@@ -90,6 +90,80 @@ a {
   width: 100%;
 }
 
+#board-state {
+  position: relative;
+}
+
+#floor-navigation {
+  display: grid;
+  gap: 0.55rem;
+  left: 1rem;
+  pointer-events: auto;
+  position: absolute;
+  top: 1rem;
+  width: 8rem;
+  z-index: 4;
+}
+
+.floor-select {
+  background: #15120f;
+  border: 2px solid #5f513b;
+  border-radius: 0.4rem;
+  color: #f8f0dc;
+  cursor: pointer;
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.35rem;
+}
+
+.floor-select:hover {
+  border-color: #b89a5b;
+}
+
+.floor-select.active {
+  border-color: #efc56a;
+  box-shadow: 0 0 0 1px #efc56a;
+}
+
+.floor-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.floor-minimap {
+  background: #080706;
+  display: block;
+  height: 4rem;
+  width: 100%;
+}
+
+.floor-minimap rect {
+  fill: #ddd1b3;
+  stroke: #493d2c;
+  stroke-width: 0.06;
+}
+
+.floor-canvas[hidden] {
+  display: none;
+}
+
+#drag-overlay {
+  height: 100%;
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  width: 100%;
+  z-index: 5;
+}
+
+.drag-preview {
+  opacity: 0.85;
+  pointer-events: none;
+}
+
 #room-details,
 #player-details {
   background: #f3e7ca;
@@ -392,7 +466,7 @@ a {
 }
 
 #zoom-panel {
-  left: 1rem;
+  left: 10rem;
   pointer-events: auto;
   position: absolute;
   top: 1rem;

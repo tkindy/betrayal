@@ -27,6 +27,22 @@
   (is (= {:min-x 0 :max-x 0 :min-y 0 :max-y 0}
          (board/bounds {:rooms []}))))
 
+(deftest derives-floors-from-landing-connected-components
+  (let [rooms [{:id 1 :room_def_id 0 :grid_x 4 :grid_y 3}
+               {:id 2 :room_def_id 1 :grid_x 3 :grid_y 3}
+               {:id 3 :room_def_id 8 :grid_x 104 :grid_y 3}
+               {:id 4 :room_def_id 20 :grid_x 104 :grid_y 4}
+               {:id 5 :room_def_id 10 :grid_x 204 :grid_y 3}
+               {:id 6 :room_def_id 33 :grid_x -96 :grid_y 3}
+               {:id 7 :room_def_id 30 :grid_x 106 :grid_y 3}]
+        layout (into {} (map (juxt :key identity)
+                             (board/floor-layout {:rooms rooms})))]
+    (is (= [1 2] (mapv :id (get-in layout ["ground" :rooms]))))
+    (is (= [3 4 7] (mapv :id (get-in layout ["upper" :rooms])))
+        "a detached movable room remains on its nearest floor")
+    (is (= {:min-x 104 :max-x 106 :min-y 3 :max-y 4}
+           (get-in layout ["upper" :bounds])))))
+
 (deftest renders-an-svg-fragment
   (let [html (board/render-board
               {:rooms [{:id 1 :room_def_id 0 :grid_x 4 :grid_y 3 :rotation 0}]
@@ -40,6 +56,12 @@
       (is (re-find #"data-id=\"1\" data-kind=\"room\"" html))
       (is (re-find #"data-kind=\"player\"" html))
       (is (re-find #"data-kind=\"monster\"" html)))
+    (testing "floor controls and canvases are rendered with local bounds"
+      (is (= 4 (count (re-seq #"class=\"floor-select\"" html))))
+      (is (= 4 (count (re-seq #"class=\"floor-canvas\"" html))))
+      (is (re-find #"data-floor-select=\"ground\"" html))
+      (is (re-find #"data-max-x=\"4\"" html))
+      (is (re-find #"data-min-x=\"4\"" html)))
     (testing "tokens render in a separate layer above every room"
       (let [rooms-layer (.indexOf html "class=\"rooms\"")
             tokens-layer (.indexOf html "class=\"tokens\"")]

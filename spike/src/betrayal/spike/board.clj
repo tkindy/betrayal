@@ -6,6 +6,12 @@
 
 (def cell-size 180)
 
+(def floors
+  [{:key "roof" :label "Roof" :landing-room-def-id 10}
+   {:key "upper" :label "Upper" :landing-room-def-id 8}
+   {:key "ground" :label "Ground" :landing-room-def-id 0}
+   {:key "basement" :label "Basement" :landing-room-def-id 33}])
+
 (defn- definition-source [resource-name]
   (or (io/resource resource-name)
       (let [directory (or (System/getenv "BETRAYAL_DEFINITIONS_DIR")
@@ -122,6 +128,84 @@
        :max-y (apply max ys)})
     {:min-x 0 :max-x 0 :min-y 0 :max-y 0}))
 
+(defn- neighboring-locations [[x y]]
+  (map (fn [[dx dy]] [(+ x dx) (+ y dy)])
+       (vals direction-deltas)))
+
+(defn- connected-locations [occupied start claimed]
+  (loop [pending (conj clojure.lang.PersistentQueue/EMPTY start)
+         visited #{}]
+    (if-let [location (peek pending)]
+      (if (or (visited location)
+              (claimed location)
+              (not (occupied location)))
+        (recur (pop pending) visited)
+        (recur (into (pop pending) (neighboring-locations location))
+               (conj visited location)))
+      visited)))
+
+(defn floor-layout
+  "Assigns each contiguous group of rooms to the floor landing it contains.
+  Detached groups use the nearest landing so movable rooms remain visible."
+  [{:keys [rooms]}]
+  (let [room-at (into {} (map (juxt (juxt :grid_x :grid_y) identity) rooms))
+        occupied (set (keys room-at))
+        floor-anchors
+        (mapv
+         (fn [floor]
+           (assoc floor :anchor
+                  (some (fn [room]
+                          (when (= (:landing-room-def-id floor)
+                                   (:room_def_id room))
+                            [(:grid_x room) (:grid_y room)]))
+                        rooms)))
+         floors)
+        [assigned claimed]
+        (reduce
+         (fn [[result claimed] {:keys [key anchor]}]
+           (let [locations (if anchor
+                             (connected-locations occupied anchor claimed)
+                             #{})]
+             [(into result (map #(vector % key) locations))
+              (into claimed locations)]))
+         [{} #{}]
+         floor-anchors)
+        unclaimed-components
+        (loop [remaining (reduce disj occupied claimed)
+               components []]
+          (if-let [start (first remaining)]
+            (let [component (connected-locations remaining start #{})]
+              (recur (reduce disj remaining component)
+                     (conj components component)))
+            components))
+        nearest-floor
+        (fn [component]
+          (:key
+           (apply min-key
+                  (fn [{:keys [anchor]}]
+                    (if anchor
+                      (apply min
+                             (for [[x y] component
+                                   :let [[anchor-x anchor-y] anchor]]
+                               (+ (abs (- x anchor-x))
+                                  (abs (- y anchor-y)))))
+                      Long/MAX_VALUE))
+                  floor-anchors)))
+        assigned
+        (reduce
+         (fn [result component]
+           (into result (map #(vector % (nearest-floor component)) component)))
+         assigned
+         unclaimed-components)]
+    (mapv
+     (fn [{:keys [key] :as floor}]
+       (let [floor-rooms
+             (filterv #(= key (get assigned [(:grid_x %) (:grid_y %)])) rooms)]
+         (assoc floor
+                :rooms floor-rooms
+                :bounds (bounds {:rooms floor-rooms}))))
+     floor-anchors)))
+
 (defn- door [direction]
   (let [half (/ cell-size 2)
         gap 28
@@ -187,6 +271,25 @@
    [:text {:y 5} (:number monster)]
    [:title (str "Monster " (:number monster) " — drag to another room")]])
 
+(defn- minimap [{:keys [key label rooms bounds]}]
+  (let [{:keys [min-x max-x min-y max-y]} bounds
+        padding 0.3
+        width (+ 1 (- max-x min-x) (* 2 padding))
+        height (+ 1 (- max-y min-y) (* 2 padding))]
+    [:button.floor-select
+     {:type "button"
+      :data-floor-select key
+      :data-min-x min-x :data-max-x max-x
+      :data-min-y min-y :data-max-y max-y
+      :aria-label (str "View " label " floor")}
+     [:span.floor-label label]
+     [:svg.floor-minimap
+      {:viewBox (format "%s %s %s %s"
+                        (- min-x padding) (- min-y padding) width height)
+       :aria-hidden "true"}
+      (for [{:keys [grid_x grid_y]} rooms]
+        [:rect {:x grid_x :y grid_y :width 1 :height 1 :rx 0.08}])]]))
+
 (defn render-board
   ([board] (render-board board nil nil))
   ([board error] (render-board board nil error))
@@ -194,59 +297,75 @@
    (let [board (enrich-board board)
          players (grouped (:players board))
          monsters (grouped (:monsters board))
-         {:keys [min-x max-x min-y max-y]} (bounds board)]
+         layout (floor-layout board)
+         floor-at
+         (into {}
+               (for [{:keys [key rooms]} layout
+                     room rooms]
+                 [[(:grid_x room) (:grid_y room)] key]))
+         open-spots-by-floor
+         (group-by
+          (fn [[grid-x grid-y]]
+            (some (fn [[dx dy]]
+                    (get floor-at [(- grid-x dx) (- grid-y dy)]))
+                  (vals direction-deltas)))
+          (open-spots board))]
      (str
       (h/html
        [:div#board-state
-        {:data-min-x min-x :data-max-x max-x
-         :data-min-y min-y :data-max-y max-y}
+        [:nav#floor-navigation.panel {:aria-label "Floors"}
+         (map minimap layout)]
         [:svg#board {:aria-label "Betrayal game board"}
          [:g#world
-          [:g.rooms
-           (for [[grid-x grid-y] (open-spots board)]
-             [:g.open-spot
-              {:data-grid-x grid-x
-               :data-grid-y grid-y
-               :transform (format "translate(%d %d)"
-                                  (* grid-x cell-size) (* grid-y cell-size))}
-              [:rect {:width cell-size :height cell-size :rx 8}]
-              [:text {:x (/ cell-size 2) :y (/ cell-size 2)} "Place room"]])
-           (for [room-data (:rooms board)]
-             [:g {:class "room-cell draggable"
-                  :aria-label (str (:name room-data)
-                                   (when (additional-rules? room-data)
-                                     " — additional rules"))
-                  :data-kind "room" :data-id (:id room-data)
-                  :data-grid-x (:grid_x room-data)
-                  :data-grid-y (:grid_y room-data)
-                  :data-room-name (:name room-data)
-                  :data-description (or (:description room-data) "")
+          (for [{:keys [key rooms]} layout]
+            [:g.floor-canvas {:data-floor key}
+             [:g.rooms
+              (for [[grid-x grid-y] (get open-spots-by-floor key)]
+                [:g.open-spot
+                 {:data-grid-x grid-x
+                  :data-grid-y grid-y
                   :transform (format "translate(%d %d)"
-                                     (* (:grid_x room-data) cell-size)
-                                     (* (:grid_y room-data) cell-size))}
-              (room-tile room-data)])]
-          [:g.tokens
-           (for [room-data (:rooms board)
-                 :let [loc [(:grid_x room-data) (:grid_y room-data)]
-                       room-players (get players loc)
-                       room-monsters (get monsters loc)
-                       player-count (count room-players)
-                       token-count (+ player-count (count room-monsters))]
-                 :when (or (seq room-players) (seq room-monsters))]
-             [:g {:class "agents"
-                  :data-grid-x (:grid_x room-data)
-                  :data-grid-y (:grid_y room-data)
-                  :transform (format "translate(%d %d)"
-                                     (* (:grid_x room-data) cell-size)
-                                     (* (:grid_y room-data) cell-size))}
-              (map-indexed
-               (fn [index player]
-                 (player-token player index token-count))
-               room-players)
-              (map-indexed
-               (fn [index monster]
-                 (monster-token monster (+ player-count index) token-count))
-               room-monsters)])]]]
+                                     (* grid-x cell-size) (* grid-y cell-size))}
+                 [:rect {:width cell-size :height cell-size :rx 8}]
+                 [:text {:x (/ cell-size 2) :y (/ cell-size 2)} "Place room"]])
+              (for [room-data rooms]
+                [:g {:class "room-cell draggable"
+                     :aria-label (str (:name room-data)
+                                      (when (additional-rules? room-data)
+                                        " — additional rules"))
+                     :data-kind "room" :data-id (:id room-data)
+                     :data-grid-x (:grid_x room-data)
+                     :data-grid-y (:grid_y room-data)
+                     :data-room-name (:name room-data)
+                     :data-description (or (:description room-data) "")
+                     :transform (format "translate(%d %d)"
+                                        (* (:grid_x room-data) cell-size)
+                                        (* (:grid_y room-data) cell-size))}
+                 (room-tile room-data)])]
+             [:g.tokens
+              (for [room-data rooms
+                    :let [loc [(:grid_x room-data) (:grid_y room-data)]
+                          room-players (get players loc)
+                          room-monsters (get monsters loc)
+                          player-count (count room-players)
+                          token-count (+ player-count (count room-monsters))]
+                    :when (or (seq room-players) (seq room-monsters))]
+                [:g {:class "agents"
+                     :data-grid-x (:grid_x room-data)
+                     :data-grid-y (:grid_y room-data)
+                     :transform (format "translate(%d %d)"
+                                        (* (:grid_x room-data) cell-size)
+                                        (* (:grid_y room-data) cell-size))}
+                 (map-indexed
+                  (fn [index player]
+                    (player-token player index token-count))
+                  room-players)
+                 (map-indexed
+                  (fn [index monster]
+                    (monster-token monster (+ player-count index) token-count))
+                  room-monsters)])]])]]
+        [:svg#drag-overlay {:aria-hidden "true"}
+         [:g#drag-layer]]
         [:div#room-details
          {:role "dialog" :aria-hidden "true" :hidden true}
          [:strong.room-details-name]

@@ -67,6 +67,9 @@ playing as.
 
 - Drag empty board space to pan.
 - Scroll, use a trackpad, or use the board-view controls to zoom and fit.
+- Use the floor miniatures on the left to switch between independently framed
+  floor views. While dragging a room or token, hover over a miniature briefly
+  to carry it to that floor before dropping it.
 - Drag a room to an unoccupied grid cell.
 - Hover over a room to read its rules or safely rotate or return it from its
   contextual menu. Returning a room requires confirmation.

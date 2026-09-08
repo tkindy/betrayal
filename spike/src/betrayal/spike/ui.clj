@@ -147,20 +147,15 @@
     [:button {:type "button" :data-board-view "zoom-in"
               :aria-label "Zoom in"} "+"]]])
 
-(def floors
-  [{:key \R :class "roof" :label "Roof"}
-   {:key \U :class "upper" :label "Upper"}
-   {:key \G :class "ground" :label "Ground"}
-   {:key \B :class "basement" :label "Basement"}])
-
 (defn- room-back [possible-floors]
   [:svg.room-picker-preview
    {:viewBox (str "0 0 " board/cell-size " " board/cell-size)
     :aria-label
     (str "Next room can be placed on "
          (str/join ", "
-                   (for [{:keys [key label]} floors
-                         :when (some #{key} possible-floors)]
+                   (for [{:keys [key label]} board/floors
+                         :let [floor-code (first (str/upper-case key))]
+                         :when (some #{floor-code} possible-floors)]
                      label)))}
    [:rect.picker-background {:width board/cell-size :height board/cell-size}]
    [:path.house-outline {:d "M 20 160 L 20 55 L 90 15 L 160 55 L 160 160 Z"}]
@@ -168,11 +163,13 @@
     {:class (str "floor-window roof"
                  (when (some #{\R} possible-floors) " available"))
      :d "M 29 55 L 90 21 L 151 55 Z"}]
-   (for [[index {:keys [key class]}] (map-indexed vector (rest floors))
-         :let [top (+ 60 (* index 32))]]
+   (for [[index {:keys [key]}] (map-indexed vector (rest board/floors))
+         :let [class key
+               floor-code (first (str/upper-case key))
+               top (+ 60 (* index 32))]]
      [:rect
       {:class (str "floor-window " class
-                   (when (some #{key} possible-floors) " available"))
+                   (when (some #{floor-code} possible-floors) " available"))
        :x 29 :y top :width 122 :height 26}])])
 
 (defn- room-stack-panel [game-id player-id room-stack]

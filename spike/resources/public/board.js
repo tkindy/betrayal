@@ -25,9 +25,13 @@
   if (!viewport) return;
 
   let view = { x: 0, y: 0, scale: 1 };
+  const floorViews = {};
+  let selectedFloor;
   let gesture = null;
   let initialized = false;
   let viewedPlayerId;
+  let floorHoverTimer;
+  let hoveredFloor;
 
   const svg = () => viewport.querySelector("#board");
   const world = () => viewport.querySelector("#world");
@@ -50,8 +54,32 @@
     );
   }
 
+  function floorButton(key = selectedFloor) {
+    return viewport.querySelector(`[data-floor-select="${key}"]`);
+  }
+
+  function syncFloorControls() {
+    const buttons = Array.from(
+      viewport.querySelectorAll("[data-floor-select]")
+    );
+    if (!buttons.some((button) => button.dataset.floorSelect === selectedFloor)) {
+      selectedFloor =
+        buttons.find((button) => button.dataset.floorSelect === "ground")
+          ?.dataset.floorSelect || buttons[0]?.dataset.floorSelect;
+    }
+    buttons.forEach((button) => {
+      const active = button.dataset.floorSelect === selectedFloor;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    viewport.querySelectorAll(".floor-canvas").forEach((canvas) => {
+      canvas.toggleAttribute("hidden", canvas.dataset.floor !== selectedFloor);
+    });
+  }
+
   function fitBoard() {
-    const state = viewport.querySelector("#board-state");
+    const state = floorButton();
+    if (!state) return;
     const widthInCells =
       Number(state.dataset.maxX) - Number(state.dataset.minX) + 1;
     const heightInCells =
@@ -72,6 +100,20 @@
       Number(state.dataset.minY) * CELL_SIZE * view.scale;
     initialized = true;
     applyView();
+  }
+
+  function selectFloor(key, fit = false) {
+    if (!key || key === selectedFloor) return;
+    if (selectedFloor) floorViews[selectedFloor] = { ...view };
+    selectedFloor = key;
+    syncFloorControls();
+    if (floorViews[key] && !fit) {
+      view = { ...floorViews[key] };
+      applyView();
+    } else {
+      fitBoard();
+    }
+    if (gesture?.type === "piece") gesture.changedFloor = true;
   }
 
   function clientToWorld(clientX, clientY) {
@@ -209,7 +251,12 @@
 
   function beginGesture(event) {
     if (event.button !== 0) return;
-    if (event.target.closest("#game-ui, #room-details, .open-spot")) return;
+    if (
+      event.target.closest(
+        "#game-ui, #floor-navigation, #room-details, .open-spot"
+      )
+    )
+      return;
     hideBoardDetails();
     const piece = event.target.closest(".draggable");
     if (piece) {
@@ -226,11 +273,18 @@
         element: piece,
         origin: parseTranslate(piece),
         companion,
-        companionOrigin: companion ? parseTranslate(companion) : null,
         point,
+        changedFloor: false,
       };
       piece.classList.add("dragging");
       companion?.classList.add("dragging");
+      const preview = piece.cloneNode(true);
+      preview.removeAttribute("transform");
+      preview.removeAttribute("id");
+      preview.classList.add("drag-preview");
+      viewport.querySelector("#drag-layer").append(preview);
+      gesture.preview = preview;
+      updateDragPreview(event);
     } else {
       gesture = {
         type: "pan",
@@ -243,6 +297,40 @@
     svg().setPointerCapture(event.pointerId);
   }
 
+  function updateDragPreview(event) {
+    if (!gesture?.preview) return;
+    const bounds = viewport.getBoundingClientRect();
+    const room = gesture.element.dataset.kind === "room";
+    const scale = room ? 0.45 : 1.25;
+    const offset = room ? -CELL_SIZE / 2 : 0;
+    gesture.preview.setAttribute(
+      "transform",
+      `translate(${event.clientX - bounds.left} ${
+        event.clientY - bounds.top
+      }) scale(${scale}) translate(${offset} ${offset})`
+    );
+  }
+
+  function updateFloorHover(event) {
+    if (gesture?.type !== "piece") return;
+    const button = document
+      .elementFromPoint(event.clientX, event.clientY)
+      ?.closest("[data-floor-select]");
+    const key = button?.dataset.floorSelect;
+    if (!key || key === selectedFloor) {
+      clearTimeout(floorHoverTimer);
+      hoveredFloor = null;
+      return;
+    }
+    if (key === hoveredFloor) return;
+    clearTimeout(floorHoverTimer);
+    hoveredFloor = key;
+    floorHoverTimer = setTimeout(() => {
+      selectFloor(key, true);
+      hoveredFloor = null;
+    }, 700);
+  }
+
   function updateGesture(event) {
     if (!gesture || gesture.pointerId !== event.pointerId) return;
     if (gesture.type === "pan") {
@@ -251,39 +339,37 @@
       applyView();
       return;
     }
-    const point = clientToWorld(event.clientX, event.clientY);
-    const x = gesture.origin.x + point.x - gesture.point.x;
-    const y = gesture.origin.y + point.y - gesture.point.y;
-    gesture.element.setAttribute("transform", `translate(${x} ${y})`);
-    if (gesture.companion) {
-      const companionX =
-        gesture.companionOrigin.x + point.x - gesture.point.x;
-      const companionY =
-        gesture.companionOrigin.y + point.y - gesture.point.y;
-      gesture.companion.setAttribute(
-        "transform",
-        `translate(${companionX} ${companionY})`
-      );
-    }
+    updateDragPreview(event);
+    updateFloorHover(event);
   }
 
   function finishGesture(event) {
     if (!gesture || gesture.pointerId !== event.pointerId) return;
     const completed = gesture;
     gesture = null;
+    clearTimeout(floorHoverTimer);
+    hoveredFloor = null;
     svg().classList.remove("panning");
     if (completed.type !== "piece") return;
 
     completed.element.classList.remove("dragging");
     completed.companion?.classList.remove("dragging");
+    completed.preview?.remove();
+    const dropTarget = document.elementFromPoint(event.clientX, event.clientY);
+    if (dropTarget?.closest("#floor-navigation, #game-ui")) return;
     const point = clientToWorld(event.clientX, event.clientY);
     let gridX;
     let gridY;
     if (completed.element.dataset.kind === "room") {
-      const x = completed.origin.x + point.x - completed.point.x;
-      const y = completed.origin.y + point.y - completed.point.y;
-      gridX = Math.round(x / CELL_SIZE);
-      gridY = Math.round(y / CELL_SIZE);
+      if (completed.changedFloor) {
+        gridX = Math.floor(point.x / CELL_SIZE);
+        gridY = Math.floor(point.y / CELL_SIZE);
+      } else {
+        const x = completed.origin.x + point.x - completed.point.x;
+        const y = completed.origin.y + point.y - completed.point.y;
+        gridX = Math.round(x / CELL_SIZE);
+        gridY = Math.round(y / CELL_SIZE);
+      }
     } else {
       gridX = Math.floor(point.x / CELL_SIZE);
       gridY = Math.floor(point.y / CELL_SIZE);
@@ -367,6 +453,12 @@
     );
   }
 
+  function changeFloor(event) {
+    const button = event.target.closest("[data-floor-select]");
+    if (!button) return;
+    selectFloor(button.dataset.floorSelect);
+  }
+
   viewport.addEventListener("pointerdown", beginGesture);
   viewport.addEventListener("pointermove", (event) => {
     updateGesture(event);
@@ -379,6 +471,7 @@
   viewport.addEventListener("change", selectViewedPlayer);
   viewport.addEventListener("click", closeInventoryCard);
   viewport.addEventListener("click", changeBoardView);
+  viewport.addEventListener("click", changeFloor);
   viewport.addEventListener("click", placeRoom);
   viewport.addEventListener(
     "wheel",
@@ -395,9 +488,11 @@
     if (!initialized) fitBoard();
   });
   document.addEventListener("htmx:after:swap", () => {
+    syncFloorControls();
     applyView();
     syncCharacterPanel();
   });
   syncCharacterPanel();
+  syncFloorControls();
   fitBoard();
 })();
