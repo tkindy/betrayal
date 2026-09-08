@@ -803,16 +803,19 @@ a {
 }
 
 .inventory-card.event summary,
+.inventory-card.event .inventory-popover,
 .drawn-card.event {
   background: #edd281;
 }
 
 .inventory-card.item summary,
+.inventory-card.item .inventory-popover,
 .drawn-card.item {
   background: #bc7043;
 }
 
 .inventory-card.omen summary,
+.inventory-card.omen .inventory-popover,
 .drawn-card.omen {
   background: #a5c96c;
 }
