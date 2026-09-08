@@ -144,6 +144,11 @@ a {
   border-color: #b89a5b;
 }
 
+.floor-select.drag-hover {
+  border-color: #d8b664;
+  box-shadow: 0 0 0 2px rgb(239 197 106 / 45%);
+}
+
 .floor-select.active {
   border-color: #efc56a;
   box-shadow: 0 0 0 1px #efc56a;

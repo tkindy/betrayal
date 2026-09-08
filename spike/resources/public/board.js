@@ -60,6 +60,17 @@
     return viewport.querySelector(`[data-floor-select="${key}"]`);
   }
 
+  function setHoveredFloor(key) {
+    if (hoveredFloor === key) return;
+    if (hoveredFloor) {
+      floorButton(hoveredFloor)?.classList.remove("drag-hover");
+    }
+    hoveredFloor = key;
+    if (hoveredFloor) {
+      floorButton(hoveredFloor)?.classList.add("drag-hover");
+    }
+  }
+
   function syncFloorDrawer() {
     const navigation = viewport.querySelector("#floor-navigation");
     const toggle = viewport.querySelector("#floor-drawer-toggle");
@@ -488,16 +499,16 @@
     const key = button?.dataset.floorSelect;
     if (!key || key === selectedFloor) {
       clearTimeout(floorHoverTimer);
-      hoveredFloor = null;
+      setHoveredFloor(null);
       return;
     }
     if (key === hoveredFloor) return;
     clearTimeout(floorHoverTimer);
-    hoveredFloor = key;
+    setHoveredFloor(key);
     floorHoverTimer = setTimeout(() => {
       selectFloor(key, true);
-      hoveredFloor = null;
-    }, 700);
+      setHoveredFloor(null);
+    }, 500);
   }
 
   function updateGesture(event) {
@@ -517,7 +528,7 @@
     const completed = gesture;
     gesture = null;
     clearTimeout(floorHoverTimer);
-    hoveredFloor = null;
+    setHoveredFloor(null);
     svg().classList.remove("panning");
     if (completed.type !== "piece") return;
 
