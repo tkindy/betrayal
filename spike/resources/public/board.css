@@ -97,14 +97,34 @@ a {
 #floor-navigation {
   display: grid;
   gap: 0.55rem;
-  grid-template-columns: repeat(4, 7rem);
-  left: 1rem;
+  grid-template-columns: 7rem;
+  left: 0;
   pointer-events: auto;
   position: absolute;
   right: auto;
   top: 1rem;
+  transform: translateX(0);
+  transition: transform 180ms ease-out;
   width: max-content;
   z-index: 4;
+}
+
+#floor-navigation:not(.open) {
+  transform: translateX(-100%);
+}
+
+#floor-drawer-toggle {
+  background: rgb(38 33 27 / 96%);
+  border: 1px solid #766751;
+  border-left: 0;
+  border-radius: 0 0.4rem 0.4rem 0;
+  color: #f8f0dc;
+  cursor: pointer;
+  left: 100%;
+  padding: 0.7rem 0.4rem;
+  position: absolute;
+  top: 0.7rem;
+  writing-mode: vertical-rl;
 }
 
 .floor-select {
@@ -164,6 +184,12 @@ a {
 .drag-preview {
   opacity: 0.85;
   pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #floor-navigation {
+    transition: none;
+  }
 }
 
 #room-details,

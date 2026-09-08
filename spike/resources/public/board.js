@@ -32,6 +32,8 @@
   let viewedPlayerId;
   let floorHoverTimer;
   let hoveredFloor;
+  let floorDrawerTimer;
+  let floorDrawerOpen = true;
 
   const svg = () => viewport.querySelector("#board");
   const world = () => viewport.querySelector("#world");
@@ -56,6 +58,36 @@
 
   function floorButton(key = selectedFloor) {
     return viewport.querySelector(`[data-floor-select="${key}"]`);
+  }
+
+  function syncFloorDrawer() {
+    const navigation = viewport.querySelector("#floor-navigation");
+    const toggle = viewport.querySelector("#floor-drawer-toggle");
+    navigation?.classList.toggle("open", floorDrawerOpen);
+    toggle?.setAttribute("aria-expanded", String(floorDrawerOpen));
+    toggle?.setAttribute(
+      "aria-label",
+      `${floorDrawerOpen ? "Hide" : "Show"} floor switcher`
+    );
+  }
+
+  function setFloorDrawer(open) {
+    floorDrawerOpen = open;
+    syncFloorDrawer();
+  }
+
+  function openFloorDrawer() {
+    clearTimeout(floorDrawerTimer);
+    setFloorDrawer(true);
+  }
+
+  function scheduleFloorDrawerClose() {
+    clearTimeout(floorDrawerTimer);
+    floorDrawerTimer = setTimeout(() => {
+      const navigation = viewport.querySelector("#floor-navigation");
+      if (gesture || navigation?.matches(":hover")) return;
+      setFloorDrawer(false);
+    }, 2500);
   }
 
   function syncFloorControls() {
@@ -356,6 +388,7 @@
     hideBoardDetails();
     const piece = event.target.closest(".draggable");
     if (piece) {
+      openFloorDrawer();
       const point = clientToWorld(event.clientX, event.clientY);
       const companion =
         piece.dataset.kind === "room"
@@ -451,6 +484,7 @@
     completed.element.classList.remove("dragging");
     completed.companion?.classList.remove("dragging");
     completed.preview?.remove();
+    scheduleFloorDrawerClose();
     const dropTarget = document.elementFromPoint(event.clientX, event.clientY);
     if (dropTarget?.closest("#floor-navigation, #game-ui")) return;
     const point = clientToWorld(event.clientX, event.clientY);
@@ -555,6 +589,27 @@
     selectFloor(button.dataset.floorSelect);
   }
 
+  function toggleFloorDrawer(event) {
+    if (!event.target.closest("#floor-drawer-toggle")) return;
+    if (floorDrawerOpen) {
+      clearTimeout(floorDrawerTimer);
+      setFloorDrawer(false);
+    } else {
+      openFloorDrawer();
+      scheduleFloorDrawerClose();
+    }
+  }
+
+  function enterFloorDrawer(event) {
+    if (event.target.closest("#floor-navigation")) openFloorDrawer();
+  }
+
+  function leaveFloorDrawer(event) {
+    const navigation = event.target.closest("#floor-navigation");
+    if (!navigation || navigation.contains(event.relatedTarget)) return;
+    scheduleFloorDrawerClose();
+  }
+
   viewport.addEventListener("pointerdown", beginGesture);
   viewport.addEventListener("pointermove", (event) => {
     updateGesture(event);
@@ -568,7 +623,10 @@
   viewport.addEventListener("click", closeInventoryCard);
   viewport.addEventListener("click", changeBoardView);
   viewport.addEventListener("click", changeFloor);
+  viewport.addEventListener("click", toggleFloorDrawer);
   viewport.addEventListener("click", placeRoom);
+  viewport.addEventListener("pointerover", enterFloorDrawer);
+  viewport.addEventListener("pointerout", leaveFloorDrawer);
   viewport.addEventListener(
     "wheel",
     (event) => {
@@ -584,11 +642,14 @@
     if (!initialized) fitBoard();
   });
   document.addEventListener("htmx:after:swap", () => {
+    syncFloorDrawer();
     syncFloorControls();
     applyView();
     syncCharacterPanel();
   });
   syncCharacterPanel();
+  syncFloorDrawer();
   syncFloorControls();
   fitBoard();
+  scheduleFloorDrawerClose();
 })();

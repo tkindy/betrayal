@@ -314,6 +314,11 @@
       (h/html
        [:div#board-state
         [:nav#floor-navigation.panel {:aria-label "Floors"}
+         [:button#floor-drawer-toggle
+          {:type "button"
+           :aria-expanded "true"
+           :aria-controls "floor-navigation"}
+          "Floors"]
          (map minimap (reverse layout))]
         [:svg#board {:aria-label "Betrayal game board"}
          [:g#world
