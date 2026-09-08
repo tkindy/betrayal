@@ -104,6 +104,7 @@
       (is (re-find #"class=\"room-details-description\"" html))
       (is (re-find #"aria-label=\"Room actions\"" html))
       (is (re-find #">⋯</summary>" html))
+      (is (re-find #"data-room-action=\"rotate\"" html))
       (is (re-find #"hx-post=\"/games//actions/rotate-room\"" html))
       (is (re-find #"hx-post=\"/games//actions/return-room\"" html))
       (is (not (re-find #"<title>Entrance Hall</title>" html))))

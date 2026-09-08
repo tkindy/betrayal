@@ -37,6 +37,7 @@
   let floorDrawerTimer;
   let floorDrawerOpen = false;
   let minimizedDrawnCardId;
+  let pendingRotatedRoom;
 
   const svg = () => viewport.querySelector("#board");
   const world = () => viewport.querySelector("#world");
@@ -434,6 +435,31 @@
     );
   }
 
+  function rememberRotatedRoom(event) {
+    const form = event.target.closest('[data-room-action="rotate"]');
+    if (!form) return;
+    pendingRotatedRoom = {
+      boardState: viewport.querySelector("#board-state"),
+      id: form.elements.namedItem("room-id").value,
+    };
+  }
+
+  function restoreRotatedRoomDetails() {
+    if (!pendingRotatedRoom) return;
+    const boardState = viewport.querySelector("#board-state");
+    if (!boardState || boardState === pendingRotatedRoom.boardState) return;
+
+    const room = Array.from(boardState.querySelectorAll(".room-cell")).find(
+      (candidate) => candidate.dataset.id === pendingRotatedRoom.id
+    );
+    pendingRotatedRoom = undefined;
+    if (!room) return;
+
+    showRoomDetails(room);
+    const roomActions = roomDetails()?.querySelector(".room-actions-menu");
+    if (roomActions) roomActions.open = true;
+  }
+
   function showPlayerDetails(player) {
     clearTimeout(hideDetailsTimer);
     cancelPendingRoomDetails();
@@ -820,6 +846,7 @@
   viewport.addEventListener("pointercancel", finishGesture);
   viewport.addEventListener("toggle", enforceSingleOpenCard, true);
   viewport.addEventListener("change", selectViewedPlayer);
+  viewport.addEventListener("submit", rememberRotatedRoom);
   viewport.addEventListener("click", closeInventoryCard);
   viewport.addEventListener("click", openGameSearch);
   viewport.addEventListener("click", jumpToLocation);
@@ -852,6 +879,7 @@
     applyView();
     syncCharacterPanel();
     syncDrawnCard();
+    restoreRotatedRoomDetails();
   });
   syncCharacterPanel();
   syncDrawnCard();
