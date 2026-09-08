@@ -327,6 +327,18 @@
         (is (= 200 (:status response)))
         (is (= "<hx-partial>error</hx-partial>" (:body response)))))))
 
+(deftest pulling-a-search-result-refreshes-the-search
+  (with-redefs-fn
+    {#'main/request-player-id (fn [_ _] 7)
+     #'main/run-action! (fn [& _] #{:room-stack})
+     #'main/broadcast-state! (fn [& _])}
+    (fn []
+      (let [response (#'main/command-response
+                      {:params {}} "GAME" :pull-room)]
+        (is (= 204 (:status response)))
+        (is (= "refreshSearch"
+               (get-in response [:headers "HX-Trigger"])))))))
+
 (deftest trait-actions-only-invalidate-that-players-traits
   (with-redefs-fn
     {#'main/ds (delay :test-datasource)
@@ -355,6 +367,24 @@
       (is (= #{:board :room-stack}
              (#'main/run-action!
               "GAME" 7 "return-room" {:room-id "12"}))))))
+
+(deftest search-pull-actions-update-the-existing-stacks
+  (with-redefs-fn
+    {#'main/ds (delay :test-datasource)
+     #'db/pull-room! (fn [datasource game-id definition-id]
+                       (is (= [:test-datasource "GAME" 12]
+                              [datasource game-id definition-id])))
+     #'db/pull-card! (fn [datasource game-id type-id definition-id]
+                       (is (= [:test-datasource "GAME" 1 8]
+                              [datasource game-id type-id definition-id])))}
+    (fn []
+      (is (= #{:board :room-stack}
+             (#'main/run-action!
+              "GAME" 7 "pull-room" {:room-definition-id "12"})))
+      (is (= #{:drawn-card}
+             (#'main/run-action!
+              "GAME" 7 "pull-card"
+              {:card-type "1" :card-definition-id "8"}))))))
 
 (deftest health-check-does-not-require-the-database
   (let [response (main/app {:request-method :get

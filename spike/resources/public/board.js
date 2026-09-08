@@ -132,6 +132,7 @@
     const bottomEdge = Math.max(gap, height - gap);
     const obstacles = [
       "#floor-navigation",
+      "#search-panel",
       "#zoom-panel",
       "#game-sidebar",
       "#character-panel",
@@ -603,6 +604,34 @@
     button.closest("details.inventory-card").open = false;
   }
 
+  function clearGameSearch(panel) {
+    const input = panel.querySelector("#game-search-input");
+    if (input) {
+      window.htmx?.trigger(input, "htmx:abort");
+      input.value = "";
+    }
+    panel.querySelector("#search-results")?.replaceChildren();
+  }
+
+  function openGameSearch(event) {
+    const button = event.target.closest("[data-game-search-toggle]");
+    if (!button) return;
+    const panel = button.closest("#search-panel");
+    if (!panel) return;
+    clearGameSearch(panel);
+    panel.querySelector("#game-search-input")?.focus();
+  }
+
+  function syncGameSearchState(event) {
+    const panel = event.target.closest("#search-panel");
+    if (!panel) return;
+    if (event.type === "focusout" && panel.contains(event.relatedTarget)) return;
+    if (event.type === "focusout") clearGameSearch(panel);
+    panel
+      .querySelector("[data-game-search-toggle]")
+      ?.setAttribute("aria-expanded", String(event.type === "focusin"));
+  }
+
   function selectViewedPlayer(event) {
     if (!event.target.matches("#player-select")) return;
     closeInventoryCards();
@@ -672,12 +701,15 @@
   viewport.addEventListener("toggle", enforceSingleOpenCard, true);
   viewport.addEventListener("change", selectViewedPlayer);
   viewport.addEventListener("click", closeInventoryCard);
+  viewport.addEventListener("click", openGameSearch);
   viewport.addEventListener("click", changeBoardView);
   viewport.addEventListener("click", changeFloor);
   viewport.addEventListener("click", toggleFloorDrawer);
   viewport.addEventListener("click", placeRoom);
   viewport.addEventListener("pointerover", enterFloorDrawer);
   viewport.addEventListener("pointerout", leaveFloorDrawer);
+  viewport.addEventListener("focusin", syncGameSearchState);
+  viewport.addEventListener("focusout", syncGameSearchState);
   viewport.addEventListener(
     "wheel",
     (event) => {

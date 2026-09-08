@@ -100,6 +100,70 @@
       (is (re-find #">Viewing<" anonymous-html))
       (is (not (re-find #"Playing as" anonymous-html))))))
 
+(deftest searches-rooms-and-cards-by-name-and-location
+  (let [locations
+        {:rooms-in-house
+         {0 {:room_def_id 0 :grid_x 4 :grid_y 3}}
+         :rooms-in-stack #{3}
+         ;; Search must not expose whether a stacked room is the current tile.
+         :current-room {:room_def_id 3 :flipped false}
+         :held-cards
+         {[1 0] [{:card_type_id 1 :card_def_id 0 :player_name "Alex"}]}
+         :drawn-card nil
+         :cards-in-stacks #{[2 0]}}
+        room (first (ui/search-results locations " nursery "))
+        card (first (ui/search-results locations "Chainsaw"))]
+    (testing "stacked rooms have the same status and action when currently on top"
+      (is (= {:kind :room
+              :definition-id 3
+              :name "Nursery"
+              :location "In the room stack"
+              :pullable? true}
+             room)))
+    (testing "held cards report their owner and cannot be pulled"
+      (is (= "Chainsaw" (:name card)))
+      (is (= "Held by Alex" (:location card)))
+      (is (false? (:pullable? card))))))
+
+(deftest renders-search-controls-and-pull-actions
+  (let [html (ui/render-ui "ABC123" state 7 nil)
+        results-html
+        (str
+         (ui/render-search-results
+          "ABC123" 7
+          {:rooms-in-house {}
+           :rooms-in-stack #{3}
+           :held-cards {}
+           :drawn-card nil
+           :cards-in-stacks #{}}
+          "Nursery"))
+        card-results-html
+        (str
+         (ui/render-search-results
+          "ABC123" 7
+          {:rooms-in-house {}
+           :rooms-in-stack #{}
+           :held-cards {}
+           :drawn-card nil
+           :cards-in-stacks #{[2 0]}}
+          "Bite"))]
+    (is (re-find #"id=\"game-search-input\"" html))
+    (is (re-find #"data-game-search-toggle" html))
+    (is (re-find #"id=\"search-popover\"" html))
+    (is (< (.indexOf html "id=\"search-panel\"")
+           (.indexOf html "id=\"game-sidebar\""))
+        "search is rendered alongside the sidebar rather than inside it")
+    (is (= 2 (count (re-seq #"hx-get=\"/games/ABC123/search\"" html)))
+        "the form handles Enter and the input handles live search")
+    (is (re-find #"refreshSearch from:body" html))
+    (is (re-find #"/actions/pull-room\?player-id=7" results-html))
+    (is (re-find #"name=\"room-definition-id\"[^>]+value=\"3\""
+                 results-html))
+    (is (re-find #"/actions/pull-card\?player-id=7" card-results-html))
+    (is (re-find #"name=\"card-type\"[^>]+value=\"2\"" card-results-html))
+    (is (re-find #"name=\"card-definition-id\"[^>]+value=\"0\""
+                 card-results-html))))
+
 (deftest can-view-every-players-character-sheet
   (let [other-player (assoc (first (:players state))
                             :id 8

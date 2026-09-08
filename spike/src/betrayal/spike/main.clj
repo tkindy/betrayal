@@ -213,6 +213,14 @@
                      (parse-int (:card-type params) "Card type"))
       #{:drawn-card})
 
+    "pull-card"
+    (do
+      (db/pull-card! @ds game-id
+                     (parse-int (:card-type params) "Card type")
+                     (parse-int (:card-definition-id params)
+                                "Card definition ID"))
+      #{:drawn-card})
+
     "discard-drawn-card"
     (do
       (db/discard-drawn-card! @ds game-id)
@@ -250,6 +258,13 @@
     "advance-room-stack"
     (do
       (db/advance-room-stack! @ds game-id)
+      #{:board :room-stack})
+
+    "pull-room"
+    (do
+      (db/pull-room! @ds game-id
+                     (parse-int (:room-definition-id params)
+                                "Room definition ID"))
       #{:board :room-stack})
 
     "flip-room-stack"
@@ -352,7 +367,9 @@
         (if (= command :roll)
           (begin-roll-reveal! game-id regions)
           (broadcast-state! game-id regions))
-        {:status 204})
+        (cond-> {:status 204}
+          (#{:pull-card :pull-room} command)
+          (assoc :headers {"HX-Trigger" "refreshSearch"})))
       (catch Exception exception
         (-> (response/response
              (render-fragments
@@ -360,6 +377,17 @@
               (or (ex-message exception) "That action could not be completed")
               #{:error}))
             (response/content-type "text/html"))))))
+
+(defn- game-search [request game-id]
+  (if-not (db/game @ds game-id)
+    (response/not-found "Game not found")
+    (-> (response/response
+         (str (ui/render-search-results
+               game-id
+               (request-player-id request game-id)
+               (db/search-locations @ds game-id)
+               (get-in request [:params :q]))))
+        (response/content-type "text/html"))))
 
 (defonce ^:private lobbies (atom {}))
 (defonce ^:private lobby-streams (atom {}))
@@ -668,6 +696,8 @@
     (select-player request game-id))
   (GET "/games/:game-id/events" [game-id :as request]
     (game-events request game-id))
+  (GET "/games/:game-id/search" [game-id :as request]
+    (game-search request game-id))
   (POST "/games/:game-id/moves" [game-id :as request]
     (command-response request game-id :move))
   (POST "/games/:game-id/actions/:action" [game-id action :as request]

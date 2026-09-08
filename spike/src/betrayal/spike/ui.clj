@@ -137,6 +137,131 @@
     (action-form game-id player-id "add-monster" {:class "game-action monster-action"}
                  [:button.wide {:type "submit"} "Add monster"])]])
 
+(defn search-results [locations query]
+  (let [query (str/lower-case (str/trim (or query "")))
+        rooms (:rooms-in-house locations)
+        floor-at (when (seq rooms)
+                   (into {}
+                         (for [{:keys [key rooms]}
+                               (board/floor-layout {:rooms (vec (vals rooms))})
+                               room rooms]
+                           [[(:grid_x room) (:grid_y room)] key])))
+        floor-labels (into {} (map (juxt :key :label) board/floors))
+        matches?
+        (fn [definition]
+          (str/includes? (str/lower-case (:name definition)) query))
+        result-rank
+        (fn [{display-name :name :keys [kind]}]
+          (let [display-name (str/lower-case display-name)]
+            [(cond
+               (= display-name query) 0
+               (str/starts-with? display-name query) 1
+               :else 2)
+             display-name
+             (clojure.core/name kind)]))]
+    (if (str/blank? query)
+      []
+      (->>
+       (concat
+        (for [[definition-id definition] @board/room-definitions
+              :when (matches? definition)
+              :let [room (get rooms definition-id)
+                    in-stack? (contains? (:rooms-in-stack locations)
+                                         definition-id)
+                    floor (some->> [(:grid_x room) (:grid_y room)]
+                                   (get floor-at)
+                                   (get floor-labels))]]
+          {:kind :room
+           :definition-id definition-id
+           :name (:name definition)
+           :location
+           (cond
+             room (str "In the house" (when floor (str " — " floor)))
+             in-stack? "In the room stack"
+             :else "Not in play")
+           :pullable? in-stack?})
+        (for [[[card-type-id definition-id] definition] @card-definitions
+              :when (matches? definition)
+              :let [card-key [card-type-id definition-id]
+                    type (get card-types card-type-id)
+                    holders (get (:held-cards locations) card-key)
+                    drawn? (= card-key (:drawn-card locations))
+                    in-stack? (contains? (:cards-in-stacks locations) card-key)]]
+          {:kind :card
+           :definition-id definition-id
+           :card-type-id card-type-id
+           :type-label (:label type)
+           :name (:name definition)
+           :location
+           (cond
+             (seq holders)
+             (str "Held by "
+                  (str/join ", " (sort (distinct (map :player_name holders)))))
+             drawn? "Currently drawn"
+             in-stack? (str "In the " (str/lower-case (:label type)) " stack")
+             :else "Not in play")
+           :pullable? in-stack?}))
+       (sort-by result-rank)
+       (take 20)
+       vec))))
+
+(defn render-search-results [game-id player-id locations query]
+  (let [results (search-results locations query)]
+    (h/html
+     (cond
+       (str/blank? (str/trim (or query "")))
+       nil
+
+       (empty? results)
+       [:p.search-empty "No matching rooms or cards"]
+
+       :else
+       [:ul.search-results-list
+        (for [{:keys [kind definition-id card-type-id type-label name
+                      location pullable?]}
+              results]
+          [:li.search-result
+           [:div
+            [:strong name]
+            [:span.search-result-kind (if (= :room kind) "Room" type-label)]
+            [:small location]]
+           (when pullable?
+             (action-form
+              game-id player-id
+              (if (= :room kind) "pull-room" "pull-card")
+              {:class "game-action search-pull-action"}
+              (if (= :room kind)
+                [:input {:type "hidden" :name "room-definition-id"
+                         :value definition-id}]
+                [:span
+                 [:input {:type "hidden" :name "card-type"
+                          :value card-type-id}]
+                 [:input {:type "hidden" :name "card-definition-id"
+                          :value definition-id}]])
+              [:button {:type "submit"} "Pull"]))])]))))
+
+(defn- search-panel [game-id player-id]
+  [:section#search-panel {:aria-label "Search game pieces"}
+   [:button.search-toggle
+    {:type "button" :data-game-search-toggle true :aria-expanded false
+     :aria-controls "search-popover"}
+    "Search"]
+   [:div#search-popover.panel.search-popover
+    [:form.search-form
+     {:action (str "/games/" game-id "/search")
+      :method "get"
+      :hx-get (str "/games/" game-id "/search")
+      :hx-target "#search-results"
+      :hx-swap "innerHTML"}
+     [:input#game-search-input
+      {:type "search" :name "q" :placeholder "Find a room or card…"
+       :aria-label "Find a room or card" :autocomplete "off"
+       :hx-get (str "/games/" game-id "/search")
+       :hx-trigger "input changed delay:200ms, search, refreshSearch from:body"
+       :hx-target "#search-results"
+       :hx-swap "innerHTML"}]]
+    [:div#search-results {:aria-live "polite"}]]])
+
 (defn- zoom-panel []
   [:section#zoom-panel.panel
    [:div.zoom-actions
@@ -384,6 +509,7 @@
       (h/html
        [:div#game-ui {:data-player-id player-id}
         (error-region error)
+        (search-panel game-id player-id)
         [:aside#game-sidebar
          (zoom-panel)
          (dice-panel game-id player-id state)

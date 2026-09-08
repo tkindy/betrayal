@@ -210,6 +210,63 @@
       game-id]
      options)}))
 
+(defn search-locations [connectable game-id]
+  {:rooms-in-house
+   (into {}
+         (map (juxt :room_def_id identity))
+         (jdbc/execute!
+          connectable
+          [(str "select \"roomDefId\" as room_def_id,"
+                " \"gridX\" as grid_x, \"gridY\" as grid_y"
+                " from rooms where \"gameId\" = ?")
+           game-id]
+          options))
+   :rooms-in-stack
+   (into #{}
+         (map :room_def_id)
+         (jdbc/execute!
+          connectable
+          [(str "select rsc.\"roomDefId\" as room_def_id"
+                " from \"roomStackContents\" rsc"
+                " join \"roomStacks\" rs on rs.id = rsc.\"stackId\""
+                " where rs.\"gameId\" = ?")
+           game-id]
+          options))
+   :held-cards
+   (group-by
+    (juxt :card_type_id :card_def_id)
+    (jdbc/execute!
+     connectable
+     [(str "select pi.\"cardTypeId\" as card_type_id,"
+           " pi.\"cardDefId\" as card_def_id, p.name as player_name"
+           " from \"playerInventories\" pi"
+           " join players p on p.id = pi.\"playerId\""
+           " where p.\"gameId\" = ?")
+      game-id]
+     options))
+   :drawn-card
+   (when-let [card
+              (jdbc/execute-one!
+               connectable
+               [(str "select \"cardTypeId\" as card_type_id,"
+                     " \"cardDefId\" as card_def_id"
+                     " from \"drawnCards\" where \"gameId\" = ?")
+                game-id]
+               options)]
+     [(:card_type_id card) (:card_def_id card)])
+   :cards-in-stacks
+   (into #{}
+         (map (juxt :card_type_id :card_def_id))
+         (jdbc/execute!
+          connectable
+          [(str "select cs.\"cardTypeId\" as card_type_id,"
+                " csc.\"cardDefId\" as card_def_id"
+                " from \"cardStackContents\" csc"
+                " join \"cardStacks\" cs on cs.id = csc.\"stackId\""
+                " where cs.\"gameId\" = ?")
+           game-id]
+          options))})
+
 (defn- entity-in-game? [tx table game-id entity-id]
   (some?
    (jdbc/execute-one!
@@ -416,6 +473,25 @@
              " values (?, ?, ?, ?)")
         game-id number (:grid_x entrance) (:grid_y entrance)]))))
 
+(defn- move-card-to-drawn! [tx game-id card-type-id stack content]
+  (jdbc/execute-one!
+   tx ["delete from \"cardStackContents\" where id = ?" (:id content)])
+  (jdbc/execute-one!
+   tx
+   [(str "insert into \"drawnCards\""
+         " (\"gameId\", \"cardTypeId\", \"cardDefId\") values (?, ?, ?)")
+    game-id card-type-id (:card_def_id content)])
+  (let [next-card (jdbc/execute-one!
+                   tx
+                   [(str "select min(index) as next_index from \"cardStackContents\""
+                         " where \"stackId\" = ?")
+                    (:id stack)]
+                   options)]
+    (jdbc/execute-one!
+     tx
+     ["update \"cardStacks\" set \"curIndex\" = ? where id = ?"
+      (:next_index next-card) (:id stack)])))
+
 (defn draw-card! [ds game-id card-type-id]
   (when-not (#{0 1 2} card-type-id)
     (throw (ex-info "Unknown card type" {})))
@@ -441,23 +517,35 @@
                      options))]
       (when-not content
         (throw (ex-info "That card stack is empty" {})))
-      (jdbc/execute-one!
-       tx ["delete from \"cardStackContents\" where id = ?" (:id content)])
-      (jdbc/execute-one!
-       tx
-       [(str "insert into \"drawnCards\""
-             " (\"gameId\", \"cardTypeId\", \"cardDefId\") values (?, ?, ?)")
-        game-id card-type-id (:card_def_id content)])
-      (let [next-card (jdbc/execute-one!
-                       tx
-                       [(str "select min(index) as next_index from \"cardStackContents\""
-                             " where \"stackId\" = ?")
-                        (:id stack)]
-                       options)]
-        (jdbc/execute-one!
-         tx
-         ["update \"cardStacks\" set \"curIndex\" = ? where id = ?"
-          (:next_index next-card) (:id stack)])))))
+      (move-card-to-drawn! tx game-id card-type-id stack content))))
+
+(defn pull-card! [ds game-id card-type-id card-definition-id]
+  (when-not (#{0 1 2} card-type-id)
+    (throw (ex-info "Unknown card type" {})))
+  (jdbc/with-transaction [tx ds]
+    (when (jdbc/execute-one!
+           tx
+           ["select id from \"drawnCards\" where \"gameId\" = ?" game-id]
+           options)
+      (throw (ex-info "Resolve the currently drawn card first" {})))
+    (let [stack (jdbc/execute-one!
+                 tx
+                 [(str "select id from \"cardStacks\""
+                       " where \"gameId\" = ? and \"cardTypeId\" = ? for update")
+                  game-id card-type-id]
+                 options)
+          content (when stack
+                    (jdbc/execute-one!
+                     tx
+                     [(str "select id, \"cardDefId\" as card_def_id"
+                           " from \"cardStackContents\""
+                           " where \"stackId\" = ? and \"cardDefId\" = ?"
+                           " for update")
+                      (:id stack) card-definition-id]
+                     options))]
+      (when-not content
+        (throw (ex-info "That card is not in its stack" {})))
+      (move-card-to-drawn! tx game-id card-type-id stack content))))
 
 (defn discard-drawn-card! [ds game-id]
   (jdbc/execute-one!
@@ -542,6 +630,26 @@
        ["update \"roomStacks\" set \"curIndex\" = ? where id = ?"
         (next-stack-index tx (:id stack) (:cur_index stack))
         (:id stack)]))))
+
+(defn pull-room! [ds game-id room-definition-id]
+  (jdbc/with-transaction [tx ds]
+    (let [stack (require-room-stack! tx game-id)]
+      (when (:flipped stack)
+        (throw (ex-info "Place the flipped room before pulling another room" {})))
+      (let [content
+            (jdbc/execute-one!
+             tx
+             [(str "select index from \"roomStackContents\""
+                   " where \"stackId\" = ? and \"roomDefId\" = ?")
+              (:id stack) room-definition-id]
+             options)]
+        (when-not content
+          (throw (ex-info "That room is not in the room stack" {})))
+        (jdbc/execute-one!
+         tx
+         [(str "update \"roomStacks\" set \"curIndex\" = ?,"
+               " flipped = true, rotation = 0 where id = ?")
+          (:index content) (:id stack)])))))
 
 (defn flip-room-stack! [ds game-id]
   (jdbc/with-transaction [tx ds]
