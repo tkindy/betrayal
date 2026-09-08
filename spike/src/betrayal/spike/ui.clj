@@ -139,7 +139,6 @@
 
 (defn- zoom-panel []
   [:section#zoom-panel.panel
-   [:h2 "Board view"]
    [:div.zoom-actions
     [:button {:type "button" :data-board-view "zoom-out"
               :aria-label "Zoom out"} "−"]
@@ -381,8 +380,8 @@
       (h/html
        [:div#game-ui {:data-player-id player-id}
         (error-region error)
-        (zoom-panel)
         [:aside#game-sidebar
+         (zoom-panel)
          (dice-panel game-id player-id state)
          (draw-panel game-id player-id)
          (room-stack-panel game-id player-id (:room-stack state))]
