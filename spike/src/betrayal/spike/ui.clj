@@ -432,13 +432,16 @@
     (card-copy card)
     [:div.card-actions
      (action-form
-      game-id player-id "give-held-card" {:class "game-action inline-form"}
+      game-id player-id "give-held-card" {:class "game-action inline-form"
+                                          :hx-disable "find select"}
       [:input {:type "hidden" :name "player-id" :value (:id player)}]
       [:input {:type "hidden" :name "card-id" :value (:id card)}]
-      [:select {:name "to-player-id" :aria-label "Give card to"}
+      [:select {:name "to-player-id"
+                :aria-label "Give card to"
+                :data-submit-on-change true
+                :required true}
        [:option {:value ""} "Give to…"]
-       (player-options players (:id player))]
-      [:button {:type "submit"} "Give"])
+       (player-options players (:id player))])
      (action-form
       game-id player-id "discard-held-card" {}
       [:input {:type "hidden" :name "player-id" :value (:id player)}]
@@ -508,11 +511,14 @@
             (action-form game-id player-id "take-drawn-card" {}
                          [:button {:type "submit"} "Take"]))
           (action-form
-           game-id player-id "give-drawn-card" {:class "game-action inline-form"}
-           [:select {:name "player-id" :aria-label "Give card to"}
+           game-id player-id "give-drawn-card" {:class "game-action inline-form"
+                                                :hx-disable "find select"}
+           [:select {:name "player-id"
+                     :aria-label "Give card to"
+                     :data-submit-on-change true
+                     :required true}
             [:option {:value ""} "Give to…"]
-            (player-options players nil)]
-           [:button {:type "submit"} "Give"])
+            (player-options players nil)])
           (action-form game-id player-id "discard-drawn-card"
                        {:class "game-action discard-action"}
                        [:button.danger {:type "submit"} "Discard"])]]]))])

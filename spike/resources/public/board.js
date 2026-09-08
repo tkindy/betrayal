@@ -56,6 +56,12 @@
     form.requestSubmit();
   }
 
+  function submitSelectedForm(event) {
+    const select = event.target.closest("select[data-submit-on-change]");
+    if (!select?.value) return;
+    select.form?.requestSubmit();
+  }
+
   function applyView() {
     world()?.setAttribute(
       "transform",
@@ -845,6 +851,7 @@
   viewport.addEventListener("pointerup", finishGesture);
   viewport.addEventListener("pointercancel", finishGesture);
   viewport.addEventListener("toggle", enforceSingleOpenCard, true);
+  viewport.addEventListener("change", submitSelectedForm);
   viewport.addEventListener("change", selectViewedPlayer);
   viewport.addEventListener("submit", rememberRotatedRoom);
   viewport.addEventListener("click", closeInventoryCard);

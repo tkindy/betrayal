@@ -106,6 +106,27 @@
       (is (re-find #">Viewing<" anonymous-html))
       (is (not (re-find #"Playing as" anonymous-html))))))
 
+(deftest renders-card-giving-as-immediate-select-controls
+  (let [other-player {:id 8
+                      :name "Blair"
+                      :character_id 1
+                      :grid_x 4
+                      :grid_y 3
+                      :speed_index 2
+                      :might_index 2
+                      :sanity_index 2
+                      :knowledge_index 2}
+        card-state (-> state
+                       (update :players conj other-player)
+                       (assoc :drawn-card
+                              {:id 10 :card_type_id 1 :card_def_id 0}))
+        html (ui/render-ui "ABC123" card-state 7 nil)]
+    (is (= 2 (count (re-seq #"<select[^>]*data-submit-on-change" html))))
+    (is (= 2 (count (re-seq #"hx-disable=\"find select\"" html))))
+    (is (re-find #"name=\"to-player-id\"[^>]*required" html))
+    (is (re-find #"name=\"player-id\"[^>]*required" html))
+    (is (not (re-find #"<button[^>]*>Give</button>" html)))))
+
 (deftest searches-rooms-and-cards-by-name-and-location
   (let [locations
         {:rooms-in-house
