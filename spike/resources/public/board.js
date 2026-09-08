@@ -21,6 +21,7 @@
   });
 
   const CELL_SIZE = 180;
+  const BOARD_DETAILS_DELAY = 150;
   const viewport = document.querySelector("#board-viewport");
   if (!viewport) return;
 
@@ -41,6 +42,9 @@
   const roomDetails = () => viewport.querySelector("#room-details");
   const playerDetails = () => viewport.querySelector("#player-details");
   let hideDetailsTimer;
+  let pendingRoomDetailsTimer;
+  let pendingRoomDetailsTarget;
+  let shownRoomDetailsTarget;
 
   function submitHiddenForm(id, values) {
     const form = viewport.querySelector(`#${id}`);
@@ -313,6 +317,9 @@
 
   function hideBoardDetails() {
     clearTimeout(hideDetailsTimer);
+    clearTimeout(pendingRoomDetailsTimer);
+    pendingRoomDetailsTarget = null;
+    shownRoomDetailsTarget = null;
     for (const details of [roomDetails(), playerDetails()]) {
       if (!details) continue;
       details.hidden = true;
@@ -324,7 +331,12 @@
 
   function scheduleHideBoardDetails() {
     clearTimeout(hideDetailsTimer);
-    hideDetailsTimer = setTimeout(hideBoardDetails, 150);
+    hideDetailsTimer = setTimeout(hideBoardDetails, BOARD_DETAILS_DELAY);
+  }
+
+  function cancelPendingRoomDetails() {
+    clearTimeout(pendingRoomDetailsTimer);
+    pendingRoomDetailsTarget = null;
   }
 
   function positionBoardDetails(details, target) {
@@ -381,6 +393,8 @@
 
   function showRoomDetails(room) {
     clearTimeout(hideDetailsTimer);
+    cancelPendingRoomDetails();
+    shownRoomDetailsTarget = room;
     const details = roomDetails();
     if (!details) return;
     const roomActions = details.querySelector(".room-actions-menu");
@@ -409,8 +423,21 @@
     positionBoardDetails(details, room);
   }
 
+  function scheduleRoomDetails(room) {
+    clearTimeout(hideDetailsTimer);
+    if (pendingRoomDetailsTarget === room) return;
+    cancelPendingRoomDetails();
+    pendingRoomDetailsTarget = room;
+    pendingRoomDetailsTimer = setTimeout(
+      () => showRoomDetails(room),
+      BOARD_DETAILS_DELAY
+    );
+  }
+
   function showPlayerDetails(player) {
     clearTimeout(hideDetailsTimer);
+    cancelPendingRoomDetails();
+    shownRoomDetailsTarget = null;
     const details = playerDetails();
     if (!details) return;
     const roomCard = roomDetails();
@@ -436,6 +463,7 @@
 
     if (event.target.closest("#room-details")) {
       clearTimeout(hideDetailsTimer);
+      cancelPendingRoomDetails();
       return;
     }
 
@@ -443,7 +471,15 @@
       ".room-cell, .room-picker-preview.flipped"
     );
     if (room) {
-      showRoomDetails(room);
+      if (
+        shownRoomDetailsTarget &&
+        shownRoomDetailsTarget !== room &&
+        !roomDetails()?.hidden
+      ) {
+        scheduleRoomDetails(room);
+      } else {
+        showRoomDetails(room);
+      }
       return;
     }
 
@@ -453,6 +489,7 @@
       return;
     }
 
+    cancelPendingRoomDetails();
     scheduleHideBoardDetails();
   }
 
