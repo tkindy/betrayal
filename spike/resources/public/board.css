@@ -760,8 +760,15 @@ a {
   display: block;
   font-size: 1.25rem;
   line-height: 1;
-  margin: 0 0 0.4rem auto;
+  margin: 0;
   padding: 0.2rem 0.55rem;
+  position: absolute;
+  right: 0.7rem;
+  top: 0.7rem;
+}
+
+.inventory-popover .card-copy h3 {
+  padding-inline: 2.5rem;
 }
 
 .card-copy h3 {
