@@ -29,6 +29,17 @@
     (is (= 42 (:id card)) "inventory ID wins over the definition ID")
     (is (= "Chainsaw" (:name card)))))
 
+(deftest prepares-room-card-state
+  (let [prepared
+        (ui/prepare-state
+         (assoc state :room-cards
+                [{:id 51 :room_id 9 :card_type_id 2 :card_def_id 0}]))
+        card (first (:room-cards prepared))]
+    (is (= 51 (:id card)) "room card ID wins over the definition ID")
+    (is (= 9 (:room_id card)))
+    (is (= :omen (:key card)))
+    (is (= "Bite" (:name card)))))
+
 (deftest renders-game-controls
   (let [html (ui/render-ui "ABC123" state 7 nil)]
     (testing "dice, card, monster, trait, and inventory actions are present"
@@ -37,6 +48,9 @@
       (is (re-find #"/actions/add-monster\?player-id=7" html))
       (is (re-find #"/actions/flip-room-stack\?player-id=7" html))
       (is (re-find #"/actions/set-trait\?player-id=7" html))
+      (is (re-find #"data-inventory-card=\"data-inventory-card\"" html))
+      (is (re-find #"data-card-id=\"42\"" html))
+      (is (re-find #"draggable=\"draggable\"" html))
       (is (re-find #"/actions/discard-held-card\?player-id=7" html))
       (is (re-find #"data-board-view=\"zoom-in\"" html))
       (is (re-find #"data-board-view=\"fit\"" html))
@@ -137,13 +151,17 @@
          :current-room {:room_def_id 3 :flipped false}
          :held-cards
          {[1 0] [{:card_type_id 1 :card_def_id 0 :player_name "Alex"}]}
+         :cards-in-rooms
+         {[2 0] [{:card_type_id 2 :card_def_id 0 :room_def_id 0
+                  :grid_x 4 :grid_y 3}]}
          :drawn-card nil
-         :cards-in-stacks #{[2 0]}}
+         :cards-in-stacks #{}}
         room (first (ui/search-results locations " nursery "))
         house-room (first (ui/search-results locations "Entrance Hall"))
         player (first (ui/search-results locations "alex"))
         character (first (ui/search-results locations "Ox Bellows"))
-        card (first (ui/search-results locations "Chainsaw"))]
+        card (first (ui/search-results locations "Chainsaw"))
+        room-card (first (ui/search-results locations "Bite"))]
     (testing "stacked rooms have the same status and action when currently on top"
       (is (= {:kind :room
               :type-label "Room"
@@ -166,7 +184,12 @@
     (testing "held cards report their owner and cannot be pulled"
       (is (= "Chainsaw" (:name card)))
       (is (= "Held by Alex" (:location card)))
-      (is (false? (:pullable? card))))))
+      (is (false? (:pullable? card))))
+    (testing "cards in rooms report and link to their location"
+      (is (= "In Entrance Hall — Ground" (:location room-card)))
+      (is (= {:floor "ground" :grid-x 4 :grid-y 3}
+             (select-keys room-card [:floor :grid-x :grid-y])))
+      (is (false? (:pullable? room-card))))))
 
 (deftest renders-search-controls-and-pull-actions
   (let [html (ui/render-ui "ABC123" state 7 nil)
@@ -178,6 +201,7 @@
            :players []
            :rooms-in-stack #{3}
            :held-cards {}
+           :cards-in-rooms {}
            :drawn-card nil
            :cards-in-stacks #{}}
           "Nursery"))
@@ -189,6 +213,7 @@
            :players []
            :rooms-in-stack #{}
            :held-cards {}
+           :cards-in-rooms {}
            :drawn-card nil
            :cards-in-stacks #{[2 0]}}
           "Bite"))
@@ -201,6 +226,7 @@
            :players []
            :rooms-in-stack #{}
            :held-cards {}
+           :cards-in-rooms {}
            :drawn-card nil
            :cards-in-stacks #{}}
           "Entrance Hall"))
@@ -213,6 +239,7 @@
            :players [{:name "Alex" :character_id 0 :grid_x 4 :grid_y 3}]
            :rooms-in-stack #{}
            :held-cards {}
+           :cards-in-rooms {}
            :drawn-card nil
            :cards-in-stacks #{}}
           "Alex"))]

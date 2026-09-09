@@ -87,10 +87,14 @@ playing as.
   remains visible without blocking the board. One inventory card can be open
   at a time; changing the viewed player closes it.
 - Take a drawn card directly for the tab's acting player.
+- Drag an inventory card onto any room to leave it there. Rooms show how many
+  cards they contain; hover over a room to inspect those cards and take one for
+  the tab's acting player.
 - Search rooms, cards, players, and characters by name. Results show whether
-  pieces are in the house, held by a player, currently drawn, or still in a
-  stack; stacked results can be pulled out and drawn directly, while rooms and
-  players in the house can be centered in their floor view.
+  pieces are in the house, held by a player, left in a room, currently drawn,
+  or still in a stack; stacked results can be pulled out and drawn directly,
+  while rooms, room cards, and players in the house can be centered in their
+  floor view.
 - Select a character and update their traits and inventory.
 - Add and move monsters.
 - Flip, rotate, skip, and place rooms from the room stack.
@@ -140,6 +144,10 @@ Use only one implementation as the writer during a play session. Both use the
 same schema and definition files, so games can be created, opened, and modified
 by either implementation. Real-time updates are not relayed between clients
 connected to different implementations.
+
+Room cards use the additive `roomCards` table. The original application does
+not query or modify that table, so it continues to run against the same migrated
+database while the beta is deployed.
 
 ## Future improvements
 

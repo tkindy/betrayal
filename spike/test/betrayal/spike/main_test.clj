@@ -114,6 +114,34 @@
         (is (re-find #">Alex<" html))
         (is (re-find #">Blair<" html))))))
 
+(deftest moves-cards-between-player-inventories-and-rooms
+  (let [calls (atom [])]
+    (with-redefs-fn
+      {#'main/ds (delay :test-datasource)
+       #'db/place-held-card!
+       (fn [& args] (swap! calls conj [:leave args]))
+       #'db/take-room-card!
+       (fn [& args] (swap! calls conj [:take args]))}
+      (fn []
+        (is (= #{:board :dice [:inventory 8]}
+               (#'main/run-action!
+                "GAME" 7 "place-held-card"
+                {:player-id "8" :card-id "42" :room-id "9"})))
+        (is (= #{:board :dice [:inventory 7]}
+               (#'main/run-action!
+                "GAME" 7 "take-room-card"
+                {:room-card-id "51"})))
+        (is (= [[:leave [:test-datasource "GAME" 8 42 9]]
+                [:take [:test-datasource "GAME" 7 51]]]
+               @calls))))))
+
+(deftest requires-an-acting-player-to-take-a-room-card
+  (is (thrown-with-msg?
+       clojure.lang.ExceptionInfo
+       #"Choose which player you are"
+       (#'main/run-action!
+        "GAME" nil "take-room-card" {:room-card-id "51"}))))
+
 (deftest remote-game-list-establishes-a-session
   (with-redefs-fn
     {#'main/ds (delay :test-datasource)

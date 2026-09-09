@@ -181,6 +181,16 @@
            " where p.\"gameId\" = ? order by pi.id")
       game-id]
      options)
+    :room-cards
+    (jdbc/execute!
+     connectable
+     [(str "select rc.id, rc.\"roomId\" as room_id,"
+           " rc.\"cardTypeId\" as card_type_id, rc.\"cardDefId\" as card_def_id"
+           " from \"roomCards\" rc"
+           " join rooms r on r.id = rc.\"roomId\""
+           " where r.\"gameId\" = ? order by rc.id")
+      game-id]
+     options)
     :drawn-card
     (jdbc/execute-one!
      connectable
@@ -250,6 +260,20 @@
            " from \"playerInventories\" pi"
            " join players p on p.id = pi.\"playerId\""
            " where p.\"gameId\" = ?")
+      game-id]
+     options))
+   :cards-in-rooms
+   (group-by
+    (juxt :card_type_id :card_def_id)
+    (jdbc/execute!
+     connectable
+     [(str "select rc.\"cardTypeId\" as card_type_id,"
+           " rc.\"cardDefId\" as card_def_id,"
+           " r.\"roomDefId\" as room_def_id,"
+           " r.\"gridX\" as grid_x, r.\"gridY\" as grid_y"
+           " from \"roomCards\" rc"
+           " join rooms r on r.id = rc.\"roomId\""
+           " where r.\"gameId\" = ?")
       game-id]
      options))
    :drawn-card
@@ -390,6 +414,12 @@
                options)
           (throw (ex-info "A room containing players or monsters cannot be returned"
                           {}))))
+      (when (jdbc/execute-one!
+             tx
+             ["select id from \"roomCards\" where \"roomId\" = ? limit 1"
+              room-id]
+             options)
+        (throw (ex-info "A room containing cards cannot be returned" {})))
       (jdbc/execute-one!
        tx ["delete from rooms where id = ? and \"gameId\" = ?" room-id game-id])
       (let [next-index
@@ -598,6 +628,54 @@
                    to-player-id card-id from-player-id])]
       (when (zero? (:next.jdbc/update-count result))
         (throw (ex-info "That card is not in this inventory" {}))))))
+
+(defn place-held-card! [ds game-id player-id card-id room-id]
+  (jdbc/with-transaction [tx ds]
+    (require-entity! tx "players" game-id player-id)
+    (require-entity! tx "rooms" game-id room-id)
+    (let [card
+          (jdbc/execute-one!
+           tx
+           [(str "select id, \"cardTypeId\" as card_type_id,"
+                 " \"cardDefId\" as card_def_id"
+                 " from \"playerInventories\""
+                 " where id = ? and \"playerId\" = ? for update")
+            card-id player-id]
+           options)]
+      (when-not card
+        (throw (ex-info "That card is not in this inventory" {})))
+      (jdbc/execute-one!
+       tx
+       [(str "insert into \"roomCards\""
+             " (\"roomId\", \"cardTypeId\", \"cardDefId\") values (?, ?, ?)")
+        room-id (:card_type_id card) (:card_def_id card)])
+      (jdbc/execute-one!
+       tx
+       ["delete from \"playerInventories\" where id = ? and \"playerId\" = ?"
+        card-id player-id]))))
+
+(defn take-room-card! [ds game-id player-id room-card-id]
+  (jdbc/with-transaction [tx ds]
+    (require-entity! tx "players" game-id player-id)
+    (let [card
+          (jdbc/execute-one!
+           tx
+           [(str "select rc.id, rc.\"cardTypeId\" as card_type_id,"
+                 " rc.\"cardDefId\" as card_def_id"
+                 " from \"roomCards\" rc"
+                 " join rooms r on r.id = rc.\"roomId\""
+                 " where rc.id = ? and r.\"gameId\" = ? for update")
+            room-card-id game-id]
+           options)]
+      (when-not card
+        (throw (ex-info "That card is not in a room in this game" {})))
+      (jdbc/execute-one!
+       tx
+       [(str "insert into \"playerInventories\""
+             " (\"playerId\", \"cardTypeId\", \"cardDefId\") values (?, ?, ?)")
+        player-id (:card_type_id card) (:card_def_id card)])
+      (jdbc/execute-one!
+       tx ["delete from \"roomCards\" where id = ?" room-card-id]))))
 
 (defn- require-room-stack! [tx game-id]
   (or

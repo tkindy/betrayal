@@ -146,3 +146,15 @@ DROP TABLE "lobbies";
 --changeset tkindy:18
 ALTER TABLE "players"
   DROP COLUMN "password";
+
+--changeset tkindy:19
+-- This is intentionally an additive, independent table so the original
+-- application can continue using the shared schema without knowing about it.
+CREATE TABLE "roomCards" (
+    "id" SERIAL PRIMARY KEY,
+    "roomId" INT NOT NULL,
+    "cardTypeId" SMALLINT NOT NULL,
+    "cardDefId" SMALLINT NOT NULL
+);
+
+CREATE INDEX ON "roomCards" ("roomId");

@@ -39,6 +39,8 @@
   let floorDrawerOpen = false;
   let minimizedDrawnCardId;
   let pendingRotatedRoom;
+  let draggedInventoryCard;
+  let cardDropTarget;
 
   const svg = () => viewport.querySelector("#board");
   const world = () => viewport.querySelector("#world");
@@ -327,6 +329,17 @@
       : { x: 0, y: 0 };
   }
 
+  function resetRoomCardViews(details = roomDetails()) {
+    if (!details) return;
+    details.scrollTop = 0;
+    details.querySelectorAll(".room-card").forEach((card) => {
+      card.open = false;
+    });
+    details.querySelectorAll(".room-card-content").forEach((content) => {
+      content.scrollTop = 0;
+    });
+  }
+
   function hideBoardDetails() {
     clearTimeout(hideDetailsTimer);
     clearTimeout(pendingRoomDetailsTimer);
@@ -339,6 +352,7 @@
     }
     const roomActions = roomDetails()?.querySelector(".room-actions-menu");
     if (roomActions) roomActions.open = false;
+    resetRoomCardViews();
   }
 
   function scheduleHideBoardDetails() {
@@ -355,6 +369,17 @@
     const viewportBox = viewport.getBoundingClientRect();
     const targetBox = target.getBoundingClientRect();
     const gap = 16;
+    let availableBottom = viewport.clientHeight - gap;
+    if (details === roomDetails()) {
+      const characterPanel = viewport.querySelector("#character-panel");
+      if (characterPanel?.getClientRects().length) {
+        availableBottom = Math.min(
+          availableBottom,
+          characterPanel.getBoundingClientRect().top - viewportBox.top - gap
+        );
+      }
+      details.style.maxHeight = `${Math.max(180, availableBottom - gap)}px`;
+    }
     const right = targetBox.right - viewportBox.left + gap;
     const left =
       targetBox.left - viewportBox.left - details.offsetWidth - gap;
@@ -364,7 +389,7 @@
     details.style.left = `${Math.max(gap, desiredX)}px`;
     details.style.top = `${Math.max(
       gap,
-      Math.min(desiredY, viewport.clientHeight - details.offsetHeight - gap)
+      Math.min(desiredY, availableBottom - details.offsetHeight)
     )}px`;
   }
 
@@ -412,8 +437,9 @@
     const roomActions = details.querySelector(".room-actions-menu");
     const actionsAvailable = room.matches(".room-cell");
     const detailsKey = actionsAvailable ? `board-${room.dataset.id}` : "room-stack";
-    if (details.dataset.roomKey !== detailsKey && roomActions) {
-      roomActions.open = false;
+    if (details.dataset.roomKey !== detailsKey) {
+      if (roomActions) roomActions.open = false;
+      resetRoomCardViews(details);
     }
     details.dataset.roomKey = detailsKey;
     if (roomActions) roomActions.hidden = !actionsAvailable;
@@ -425,6 +451,10 @@
       details.querySelector(".room-details-description"),
       room.dataset.description
     );
+    details.querySelectorAll("[data-room-cards-for]").forEach((cardList) => {
+      cardList.hidden =
+        !actionsAvailable || cardList.dataset.roomCardsFor !== room.dataset.id;
+    });
     if (actionsAvailable) {
       details.querySelectorAll(".room-details-id").forEach((input) => {
         input.value = room.dataset.id;
@@ -444,6 +474,22 @@
       () => showRoomDetails(room),
       BOARD_DETAILS_DELAY
     );
+  }
+
+  function repositionRoomDetailsAfterToggle(event) {
+    if (!event.target.matches(".room-card")) return;
+    const details = roomDetails();
+    const target = shownRoomDetailsTarget;
+    if (!details || details.hidden || !target) return;
+    requestAnimationFrame(() => {
+      if (
+        details === roomDetails() &&
+        !details.hidden &&
+        target === shownRoomDetailsTarget
+      ) {
+        positionBoardDetails(details, target);
+      }
+    });
   }
 
   function rememberRotatedRoom(event) {
@@ -805,6 +851,65 @@
     });
   }
 
+  function clearCardDropTarget() {
+    cardDropTarget?.classList.remove("card-drop-target");
+    cardDropTarget = undefined;
+  }
+
+  function roomAtDragEvent(event) {
+    const directRoom = event.target.closest(".room-cell");
+    if (directRoom) return directRoom;
+    if (!world()?.getScreenCTM()) return;
+    const point = clientToWorld(event.clientX, event.clientY);
+    const gridX = Math.floor(point.x / CELL_SIZE);
+    const gridY = Math.floor(point.y / CELL_SIZE);
+    return viewport.querySelector(
+      `.floor-canvas[data-floor="${selectedFloor}"] ` +
+        `.room-cell[data-grid-x="${gridX}"][data-grid-y="${gridY}"]`
+    );
+  }
+
+  function beginCardDrag(event) {
+    const card = event.target.closest("[data-inventory-card]");
+    if (!card) return;
+    draggedInventoryCard = {
+      playerId: card.dataset.playerId,
+      cardId: card.dataset.cardId,
+      element: card,
+    };
+    card.classList.add("dragging-card");
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", card.dataset.cardId);
+    hideBoardDetails();
+  }
+
+  function updateCardDrag(event) {
+    if (!draggedInventoryCard) return;
+    const room = roomAtDragEvent(event);
+    clearCardDropTarget();
+    if (!room) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    cardDropTarget = room;
+    room.classList.add("card-drop-target");
+  }
+
+  function finishCardDrag(event) {
+    if (!draggedInventoryCard) return;
+    const room = roomAtDragEvent(event);
+    if (event.type === "drop" && room) {
+      event.preventDefault();
+      submitHiddenForm("place-card-command", {
+        "player-id": draggedInventoryCard.playerId,
+        "card-id": draggedInventoryCard.cardId,
+        "room-id": room.dataset.id,
+      });
+    }
+    draggedInventoryCard.element?.classList.remove("dragging-card");
+    draggedInventoryCard = undefined;
+    clearCardDropTarget();
+  }
+
   function changeBoardView(event) {
     const button = event.target.closest("[data-board-view]");
     if (!button) return;
@@ -856,6 +961,7 @@
   viewport.addEventListener("pointerup", finishGesture);
   viewport.addEventListener("pointercancel", finishGesture);
   viewport.addEventListener("toggle", enforceSingleOpenCard, true);
+  viewport.addEventListener("toggle", repositionRoomDetailsAfterToggle, true);
   viewport.addEventListener("change", submitSelectedForm);
   viewport.addEventListener("change", selectViewedPlayer);
   viewport.addEventListener("submit", rememberRotatedRoom);
@@ -867,6 +973,10 @@
   viewport.addEventListener("click", changeFloor);
   viewport.addEventListener("click", toggleFloorDrawer);
   viewport.addEventListener("click", placeRoom);
+  viewport.addEventListener("dragstart", beginCardDrag);
+  viewport.addEventListener("dragover", updateCardDrag);
+  viewport.addEventListener("drop", finishCardDrag);
+  viewport.addEventListener("dragend", finishCardDrag);
   viewport.addEventListener("pointerover", enterFloorDrawer);
   viewport.addEventListener("pointerout", leaveFloorDrawer);
   viewport.addEventListener("focusin", syncGameSearchState);
@@ -874,7 +984,12 @@
   viewport.addEventListener(
     "wheel",
     (event) => {
-      if (event.target.closest("#game-ui")) return;
+      if (
+        event.target.closest(
+          "#game-ui, #floor-navigation, #room-details, #player-details"
+        )
+      )
+        return;
       event.preventDefault();
       const factor = Math.exp(-event.deltaY * 0.001);
       zoomAt(event.clientX, event.clientY, factor);

@@ -230,6 +230,8 @@ a {
 }
 
 #room-details {
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
   pointer-events: auto;
 }
 
@@ -370,6 +372,12 @@ a {
   cursor: move;
 }
 
+.room-cell.card-drop-target .room-background {
+  fill: #f3dda2;
+  stroke: #efc56a;
+  stroke-width: 8;
+}
+
 .room-background {
   fill: #ddd1b3;
   stroke: #493d2c;
@@ -458,6 +466,123 @@ a {
   font-style: italic;
   font-weight: 700;
   text-anchor: middle;
+}
+
+.room-cards-icon {
+  pointer-events: none;
+}
+
+.room-cards-icon rect {
+  fill: #f3e7ca;
+  stroke: #493d2c;
+  stroke-width: 2;
+}
+
+.room-cards-icon text {
+  fill: #493d2c;
+  font-size: 15px;
+  font-weight: 800;
+  text-anchor: middle;
+}
+
+.room-details-cards {
+  border-top: 1px solid rgb(73 61 44 / 35%);
+  margin-top: 0.75rem;
+  padding-top: 0.65rem;
+}
+
+.room-details-cards[hidden] {
+  display: none;
+}
+
+.room-details-cards > h3 {
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  margin: 0 0 0.4rem;
+  text-transform: uppercase;
+}
+
+.room-card {
+  border: 1px solid #766751;
+  border-radius: 0.35rem;
+  margin-top: 0.35rem;
+  overflow: hidden;
+}
+
+.room-card > summary {
+  cursor: pointer;
+  display: flex;
+  font-family: Georgia, serif;
+  font-weight: 700;
+  gap: 0.5rem;
+  justify-content: space-between;
+  list-style: none;
+  padding: 0.45rem 0.55rem;
+}
+
+.room-card > summary::-webkit-details-marker {
+  display: none;
+}
+
+.room-card.event > summary {
+  background: #edd281;
+}
+
+.room-card.item > summary {
+  background: #bc7043;
+}
+
+.room-card.omen > summary {
+  background: #a5c96c;
+}
+
+.room-card-type {
+  font-family: system-ui, sans-serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.room-card-content {
+  background: #f3e7ca;
+  border-top: 1px solid #766751;
+  max-height: min(24rem, 45vh);
+  overflow-y: auto;
+  padding: 0 0.7rem 0.7rem;
+}
+
+.room-card-content .card-copy h3 {
+  font-size: 1.15rem;
+}
+
+.room-card-content > form {
+  background: #f3e7ca;
+  display: flex;
+  justify-content: end;
+  padding-block: 0.55rem;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.room-card-content button {
+  background: #e8d8b5;
+  border: 1px solid #766751;
+  border-radius: 0.3rem;
+  color: #211d18;
+  cursor: pointer;
+  font: inherit;
+  min-height: 2rem;
+  padding: 0.35rem 0.65rem;
+}
+
+.room-card-content button:hover {
+  background: #f7e9ca;
+}
+
+.room-card-identify-help {
+  font-size: 0.8rem;
+  margin-bottom: 0;
 }
 
 .token {
@@ -909,6 +1034,15 @@ a {
   padding: 0.45rem;
   place-items: center;
   text-align: center;
+}
+
+.inventory-card summary.dragging-card {
+  opacity: 0.55;
+}
+
+.inventory-card-drag-help {
+  font-size: 0.8rem;
+  font-style: italic;
 }
 
 .inventory-card.event summary,

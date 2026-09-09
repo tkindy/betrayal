@@ -120,7 +120,8 @@
     (let [state (db/game-state @ds game-id)
           debug-player-id (debug-player-id request game-id)
           player-id (or debug-player-id
-                        (session-player-id request game-id))]
+                        (session-player-id request game-id))
+          state (ui/prepare-state state)]
       (page
        "Betrayal"
        [:main#board-viewport
@@ -131,7 +132,7 @@
                         (str "?player-id=" debug-player-id)))
                  :hx-swap "none"}
           debug-player-id (assoc :data-debug-player-id debug-player-id))
-        (h/raw (board/render-board state game-id nil))
+        (h/raw (board/render-board state game-id player-id))
         (h/raw (ui/render-ui game-id state player-id nil))
         [:form#move-command
          {:hidden true
@@ -146,7 +147,14 @@
           :hx-post (str "/games/" game-id "/actions/place-room")
           :hx-swap "none"}
          [:input {:name "grid-x"}]
-         [:input {:name "grid-y"}]]]))
+         [:input {:name "grid-y"}]]
+        [:form#place-card-command
+         {:hidden true
+          :hx-post (str "/games/" game-id "/actions/place-held-card")
+          :hx-swap "none"}
+         [:input {:name "player-id"}]
+         [:input {:name "card-id"}]
+         [:input {:name "room-id"}]]]))
     nil))
 
 (defn- parse-int [value label]
@@ -155,15 +163,16 @@
 
 (defn- render-fragments-from-state
   [game-id state player-id error regions]
-  (str
-   (h/html
-    [:div
-     (when (or (contains? regions :all)
-               (contains? regions :board))
-       [:hx-partial {:hx-target "#board-state" :hx-swap "outerHTML"}
-        (h/raw (board/render-board state game-id nil))])
-     (h/raw (ui/render-updates
-             game-id state player-id error regions))])))
+  (let [prepared-state (ui/prepare-state state)]
+    (str
+     (h/html
+      [:div
+       (when (or (contains? regions :all)
+                 (contains? regions :board))
+         [:hx-partial {:hx-target "#board-state" :hx-swap "outerHTML"}
+          (h/raw (board/render-board prepared-state game-id player-id))])
+       (h/raw (ui/render-updates
+               game-id prepared-state player-id error regions))]))))
 
 (defn- game-state-for-rendering [game-id]
   (cond-> (db/game-state @ds game-id)
@@ -254,6 +263,22 @@
                           target-player-id)
       #{[:inventory source-player-id]
         [:inventory target-player-id]})
+
+    "place-held-card"
+    (let [source-player-id (parse-int (:player-id params) "Player ID")]
+      (db/place-held-card! @ds game-id
+                           source-player-id
+                           (parse-int (:card-id params) "Card ID")
+                           (parse-int (:room-id params) "Room ID"))
+      #{:board :dice [:inventory source-player-id]})
+
+    "take-room-card"
+    (if player-id
+      (do
+        (db/take-room-card! @ds game-id player-id
+                            (parse-int (:room-card-id params) "Room card ID"))
+        #{:board :dice [:inventory player-id]})
+      (throw (ex-info "Choose which player you are before taking a card" {})))
 
     "advance-room-stack"
     (do

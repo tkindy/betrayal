@@ -1,5 +1,6 @@
 (ns betrayal.spike.ui
   (:require [betrayal.spike.board :as board]
+            [betrayal.spike.cards :as cards]
             [clojure.string :as str]
             [hiccup2.core :as h]))
 
@@ -45,20 +46,25 @@
                               inventory)))
                    (filter #(= (:id player) (:player_id %)) inventories)))))
 
-(defn prepare-state [{:keys [players inventories latest-roll] :as state}]
+(defn- enrich-card [card]
+  (let [type (get card-types (:card_type_id card))]
+    (merge (get @card-definitions
+                [(:card_type_id card) (:card_def_id card)])
+           type
+           card)))
+
+(defn prepare-state
+  [{:keys [players inventories room-cards latest-roll] :as state}]
   (assoc state
          :players (mapv #(enrich-player % inventories) players)
+         :room-cards (mapv enrich-card room-cards)
          :latest-roll
          (when latest-roll
            (assoc latest-roll
                   :values (mapv parse-long (str/split (:rolls latest-roll) #"\|"))))
          :drawn-card
          (when-let [drawn (:drawn-card state)]
-           (let [type (get card-types (:card_type_id drawn))]
-             (merge (get @card-definitions
-                         [(:card_type_id drawn) (:card_def_id drawn)])
-                    type
-                    drawn)))))
+           (enrich-card drawn))))
 
 (defn- action-form [game-id player-id action attributes & children]
   (let [action-url
@@ -215,22 +221,38 @@
               :let [card-key [card-type-id definition-id]
                     type (get card-types card-type-id)
                     holders (get (:held-cards locations) card-key)
+                    room-locations (get (:cards-in-rooms locations) card-key)
                     drawn? (= card-key (:drawn-card locations))
-                    in-stack? (contains? (:cards-in-stacks locations) card-key)]]
-          {:kind :card
-           :definition-id definition-id
-           :card-type-id card-type-id
-           :type-label (:label type)
-           :name (:name definition)
-           :location
-           (cond
-             (seq holders)
-             (str "Held by "
-                  (str/join ", " (sort (distinct (map :player_name holders)))))
-             drawn? "Currently drawn"
-             in-stack? (str "In the " (str/lower-case (:label type)) " stack")
-             :else "Not in play")
-           :pullable? in-stack?}))
+                    in-stack? (contains? (:cards-in-stacks locations) card-key)
+                    room-location (first room-locations)
+                    room-definition
+                    (get @board/room-definitions (:room_def_id room-location))
+                    floor-key
+                    (get floor-at [(:grid_x room-location)
+                                   (:grid_y room-location)])
+                    floor-label (get floor-labels floor-key)]]
+          (cond->
+           {:kind :card
+            :definition-id definition-id
+            :card-type-id card-type-id
+            :type-label (:label type)
+            :name (:name definition)
+            :location
+            (cond
+              (seq holders)
+              (str "Held by "
+                   (str/join ", " (sort (distinct (map :player_name holders)))))
+              (seq room-locations)
+              (str "In " (:name room-definition)
+                   (when floor-label (str " — " floor-label)))
+              drawn? "Currently drawn"
+              in-stack? (str "In the " (str/lower-case (:label type)) " stack")
+              :else "Not in play")
+            :pullable? in-stack?}
+            room-location
+            (assoc :floor floor-key
+                   :grid-x (:grid_x room-location)
+                   :grid-y (:grid_y room-location)))))
        (sort-by result-rank)
        (take 20)
        vec))))
@@ -391,28 +413,6 @@
                    :aria-label (str "Set " label " to " value)}
           value]))]]))
 
-(defn- render-roll-table [value]
-  [:table.roll-table
-   [:tbody
-    (for [row (str/split-lines value)
-          :let [[_ target outcome] (re-matches #"(\S+)\s{2}(.*)" row)]]
-      [:tr [:th target] [:td outcome]])]])
-
-(defn- card-copy
-  ([card] (card-copy card nil))
-  ([{:keys [name subtype condition flavor-text description roll-table]}
-    heading-attributes]
-   [:div.card-copy
-    [:h3 heading-attributes name]
-    (when-not (str/blank? (or subtype condition))
-      [:p.card-subtitle (or subtype condition)])
-    (when-not (str/blank? flavor-text)
-      [:blockquote flavor-text])
-    (for [paragraph (str/split-lines description)]
-      (if (= paragraph "<rollTable>")
-        (render-roll-table roll-table)
-        [:p paragraph]))]))
-
 (defn- player-options [players excluded-player-id]
   (for [player players :when (not= excluded-player-id (:id player))]
     [:option {:value (:id player)}
@@ -424,12 +424,19 @@
     :name "inventory-card"
     :hx-preserve true
     :class (name (:key card))}
-   [:summary (:name card)]
+   [:summary
+    {:draggable true
+     :data-inventory-card true
+     :data-player-id (:id player)
+     :data-card-id (:id card)
+     :title "Drag this card onto a room"}
+    (:name card)]
    [:div.inventory-popover
     [:button.inventory-card-close
      {:type "button" :aria-label "Close card details"}
      "×"]
-    (card-copy card)
+    (cards/card-copy card)
+    [:p.inventory-card-drag-help "Drag this card onto any room to leave it there."]
     [:div.card-actions
      (action-form
       game-id player-id "give-held-card" {:class "game-action inline-form"
@@ -503,7 +510,7 @@
            :data-drawn-card-view "expanded"
            :aria-label "Expand drawn card"}
           "Expand"]
-         (card-copy card {:id heading-id})
+         (cards/card-copy card {:id heading-id})
          (when (= :omen (:key card))
            [:strong "Make a haunt roll now."])
          [:div.card-actions

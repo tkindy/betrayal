@@ -134,6 +134,28 @@
     (is (re-find #"aria-label=\"Entrance Hall\"" html))
     (is (not (re-find #"aria-label=\"Entrance Hall — additional rules\"" html)))))
 
+(deftest renders-cards-left-in-rooms
+  (let [room-card {:id 51 :room_id 1 :card_type_id 1 :card_def_id 0
+                   :key :item :label "Item" :name "Chainsaw"
+                   :description "A chainsaw."}
+        html (board/render-board
+              {:rooms [{:id 1 :room_def_id 0
+                        :grid_x 4 :grid_y 3 :rotation 0}]
+               :players []
+               :monsters []
+               :room-cards [room-card]}
+              "ABC123"
+              7)]
+    (testing "the room visibly indicates its card count"
+      (is (re-find #"class=\"room-cards-icon\"" html))
+      (is (re-find #"aria-label=\"Entrance Hall — 1 card\"" html)))
+    (testing "the hover details contain the card and a take action"
+      (is (re-find #"data-room-cards-for=\"1\"" html))
+      (is (re-find #">Chainsaw<" html))
+      (is (re-find #"A chainsaw\." html))
+      (is (re-find #"/actions/take-room-card\?player-id=7" html))
+      (is (re-find #"name=\"room-card-id\"[^>]+value=\"51\"" html)))))
+
 (deftest renders-a-reusable-room-tile
   (let [html (str (h/html
                    (board/room-tile

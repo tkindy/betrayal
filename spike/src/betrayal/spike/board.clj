@@ -1,5 +1,6 @@
 (ns betrayal.spike.board
-  (:require [clojure.data.csv :as csv]
+  (:require [betrayal.spike.cards :as cards]
+            [clojure.data.csv :as csv]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [hiccup2.core :as h]))
@@ -245,7 +246,14 @@
    [:circle {:cx 154 :cy 26 :r 12}]
    [:text {:x 154 :y 31} "i"]])
 
-(defn room-tile [{:keys [name doors features barrier-features] :as room}]
+(defn- room-cards-icon [count]
+  [:g {:class "room-cards-icon" :aria-hidden "true"}
+   [:rect {:x 14 :y 13 :width 25 :height 31 :rx 3}]
+   [:rect {:x 10 :y 9 :width 25 :height 31 :rx 3}]
+   [:text {:x 22.5 :y 31} count]])
+
+(defn room-tile
+  [{:keys [name doors features barrier-features room-card-count] :as room}]
   (let [all-features
         (str/join " " (map str (concat features barrier-features)))]
     [:g {:class "room"}
@@ -258,6 +266,8 @@
        name]]
      (when-not (str/blank? all-features)
        [:text {:class "features" :x (/ cell-size 2) :y 105} all-features])
+     (when (pos? (or room-card-count 0))
+       (room-cards-icon room-card-count))
      (when (additional-rules? room)
        (room-rules-icon))]))
 
@@ -338,11 +348,44 @@
             [index [kind entity]] (map-indexed vector entities)]
         (minimap-token kind entity index total grid_x grid_y))]]))
 
+(defn- room-card-list [game-id player-id room cards]
+  [:section.room-details-cards
+   {:data-room-cards-for (:id room) :hidden true}
+   [:h3 (str (count cards) " card" (when (not= 1 (count cards)) "s") " here")]
+   (for [card cards]
+     [:details.room-card {:class (name (:key card))}
+      [:summary
+       [:span.room-card-type (:label card)]
+       (:name card)]
+      [:div.room-card-content
+       (if player-id
+         [:form.game-action
+          {:action (str "/games/" game-id "/actions/take-room-card"
+                        "?player-id=" player-id)
+           :method "post"
+           :hx-post (str "/games/" game-id "/actions/take-room-card"
+                         "?player-id=" player-id)
+           :hx-swap "none"
+           :hx-disable "find button"}
+          [:input {:type "hidden" :name "room-card-id" :value (:id card)}]
+          [:button {:type "submit"} "Take"]]
+         [:p.room-card-identify-help
+          "Choose a player before taking this card."])
+       (cards/card-copy card)]])])
+
 (defn render-board
   ([board] (render-board board nil nil))
   ([board error] (render-board board nil error))
-  ([board game-id _error]
-   (let [board (enrich-board board)
+  ([board game-id player-id]
+   (let [room-cards (group-by :room_id (:room-cards board))
+         board (-> (enrich-board board)
+                   (update :rooms
+                           (fn [rooms]
+                             (mapv
+                              (fn [room]
+                                (assoc room :room-card-count
+                                       (count (get room-cards (:id room)))))
+                              rooms))))
          players (grouped (:players board))
          monsters (grouped (:monsters board))
          layout (floor-layout board)
@@ -388,7 +431,12 @@
                 [:g {:class "room-cell draggable"
                      :aria-label (str (:name room-data)
                                       (when (additional-rules? room-data)
-                                        " — additional rules"))
+                                        " — additional rules")
+                                      (when (pos? (:room-card-count room-data))
+                                        (str " — " (:room-card-count room-data)
+                                             " card"
+                                             (when (not= 1 (:room-card-count room-data))
+                                               "s"))))
                      :data-kind "room" :data-id (:id room-data)
                      :data-grid-x (:grid_x room-data)
                      :data-grid-y (:grid_y room-data)
@@ -426,6 +474,10 @@
          {:role "dialog" :aria-hidden "true" :hidden true}
          [:strong.room-details-name]
          [:div.room-details-description]
+         (for [room (:rooms board)
+               :let [cards (get room-cards (:id room))]
+               :when (seq cards)]
+           (room-card-list game-id player-id room cards))
          [:details.room-actions-menu
           [:summary {:aria-label "Room actions"} "⋯"]
           [:div.room-details-actions
