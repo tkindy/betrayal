@@ -62,7 +62,8 @@
                           :grid_x 4 :grid_y 3
                           :speed_index 2 :might_index 2
                           :sanity_index 2 :knowledge_index 2}]
-               :monsters [{:id 3 :number 1 :grid_x 4 :grid_y 3}]})]
+               :monsters [{:id 3 :number 1 :name "Dog <friend>"
+                           :grid_x 4 :grid_y 3}]})]
     (testing "the fragment contains all draggable entity types"
       (is (re-find #"data-kind=\"room\"" html))
       (is (re-find #"data-id=\"1\" data-kind=\"room\"" html))
@@ -118,8 +119,27 @@
              (.indexOf html "player-details-name"))
           "the prominent character name precedes the player name")
       (is (not (re-find #"<title>Player" html))))
+    (testing "monster tokens provide their shared name and an editing hovercard"
+      (is (re-find #"aria-label=\"Dog &lt;friend&gt;\"" html))
+      (is (re-find #"data-monster-name=\"Dog &lt;friend&gt;\"" html))
+      (is (re-find #"data-monster-number=\"1\"" html))
+      (is (re-find #"id=\"monster-details\"" html))
+      (is (re-find #"name=\"monster-id\"" html))
+      (is (re-find #"maxlength=\"40\"" html))
+      (is (re-find #"hx-post=\"/games//actions/set-monster-name\"" html))
+      (is (not (re-find #"<title>Monster" html))))
     (testing "Hiccup escapes database content"
-      (is (re-find #"Player &lt;one&gt;" html)))))
+      (is (re-find #"Player &lt;one&gt;" html))
+      (is (re-find #"Dog &lt;friend&gt;" html)))))
+
+(deftest renders-a-default-label-for-an-unnamed-monster
+  (let [html (board/render-board
+              {:rooms [{:id 1 :room_def_id 0 :grid_x 4 :grid_y 3 :rotation 0}]
+               :players []
+               :monsters [{:id 3 :number 2 :name nil
+                           :grid_x 4 :grid_y 3}]})]
+    (is (re-find #"aria-label=\"Monster 2\"" html))
+    (is (re-find #"data-monster-name=\"\"" html))))
 
 (deftest indicates-placed-rooms-with-additional-rules
   (let [html (board/render-board

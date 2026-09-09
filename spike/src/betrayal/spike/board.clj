@@ -294,13 +294,19 @@
    [:circle {:r 14 :fill (str/lower-case (:color player))}]])
 
 (defn- monster-token [monster index total]
-  [:g {:class "token monster draggable"
-       :data-kind "monster" :data-id (:id monster)
-       :data-grid-x (:grid_x monster) :data-grid-y (:grid_y monster)
-       :transform (format "translate(%s %d)" (token-x index total) 137)}
-   [:rect {:x -13 :y -13 :width 26 :height 26 :rx 4}]
-   [:text {:y 5} (:number monster)]
-   [:title (str "Monster " (:number monster) " — drag to another room")]])
+  (let [default-name (str "Monster " (:number monster))
+        display-name (if (str/blank? (:name monster))
+                       default-name
+                       (:name monster))]
+    [:g {:class "token monster draggable"
+         :aria-label display-name
+         :data-kind "monster" :data-id (:id monster)
+         :data-grid-x (:grid_x monster) :data-grid-y (:grid_y monster)
+         :data-monster-name (or (:name monster) "")
+         :data-monster-number (:number monster)
+         :transform (format "translate(%s %d)" (token-x index total) 137)}
+     [:rect {:x -13 :y -13 :width 26 :height 26 :rx 4}]
+     [:text {:y 5} (:number monster)]]))
 
 (defn- minimap-token-position [index total]
   (let [column-count (min total 3)
@@ -509,4 +515,21 @@
           [:div [:dt "Speed"] [:dd.player-details-speed]]
           [:div [:dt "Might"] [:dd.player-details-might]]
           [:div [:dt "Sanity"] [:dd.player-details-sanity]]
-          [:div [:dt "Knowledge"] [:dd.player-details-knowledge]]]]])))))
+          [:div [:dt "Knowledge"] [:dd.player-details-knowledge]]]]
+        [:div#monster-details
+         {:role "dialog" :aria-hidden "true" :hidden true}
+         [:strong.monster-details-name]
+         [:span.monster-details-number]
+         [:form.monster-name-form.game-action
+          {:action (str "/games/" game-id "/actions/set-monster-name")
+           :method "post"
+           :hx-post (str "/games/" game-id "/actions/set-monster-name")
+           :hx-swap "none"
+           :hx-disable "find button"}
+          [:input.monster-details-id
+           {:type "hidden" :name "monster-id"}]
+          [:label
+           "Name"
+           [:input.monster-details-name-input
+            {:name "name" :maxlength 40 :placeholder "Name this monster"}]]
+          [:button {:type "submit"} "Save"]]]])))))

@@ -38,6 +38,39 @@
                        [8080 8081 8082])))
       (is (= [8080 8081 8082] @attempted-ports)))))
 
+(deftest updates-and-clears-monster-names
+  (let [updates (atom [])]
+    (with-redefs-fn
+      {#'main/ds (delay :test-datasource)
+       #'db/set-monster-name!
+       (fn [datasource game-id monster-id name]
+         (swap! updates conj [datasource game-id monster-id name]))}
+      (fn []
+        (is (= #{:board}
+               (#'main/run-action!
+                "GAME" 7 "set-monster-name"
+                {:monster-id "12" :name "  The Dog  "})))
+        (is (= #{:board}
+               (#'main/run-action!
+                "GAME" 8 "set-monster-name"
+                {:monster-id "12" :name "   "})))
+        (is (= [[:test-datasource "GAME" 12 "The Dog"]
+                [:test-datasource "GAME" 12 nil]]
+               @updates))))))
+
+(deftest rejects-overlong-monster-names
+  (with-redefs-fn
+    {#'main/ds (delay :test-datasource)
+     #'db/set-monster-name!
+     (fn [& _] (throw (AssertionError. "database update should not run")))}
+    (fn []
+      (is (thrown-with-msg?
+           clojure.lang.ExceptionInfo
+           #"Monster name must be at most 40 characters"
+           (#'main/run-action!
+            "GAME" 7 "set-monster-name"
+            {:monster-id "12" :name (apply str (repeat 41 "x"))}))))))
+
 (deftest resolves-local-player-overrides
   (with-player-stubs
     (fn []

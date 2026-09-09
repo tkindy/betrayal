@@ -158,3 +158,7 @@ CREATE TABLE "roomCards" (
 );
 
 CREATE INDEX ON "roomCards" ("roomId");
+
+--changeset tkindy:20
+ALTER TABLE "monsters"
+  ADD COLUMN IF NOT EXISTS "name" VARCHAR(40) NULL;

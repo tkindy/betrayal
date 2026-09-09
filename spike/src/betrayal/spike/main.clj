@@ -204,6 +204,15 @@
       (db/add-monster! @ds game-id)
       #{:board})
 
+    "set-monster-name"
+    (let [monster-id (parse-int (:monster-id params) "Monster ID")
+          name (str/trim (or (:name params) ""))]
+      (when (> (count name) 40)
+        (throw (ex-info "Monster name must be at most 40 characters" {})))
+      (db/set-monster-name! @ds game-id monster-id
+                            (when-not (str/blank? name) name))
+      #{:board})
+
     "rotate-room"
     (do
       (db/rotate-room! @ds game-id

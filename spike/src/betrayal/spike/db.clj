@@ -163,7 +163,8 @@
    :monsters
    (jdbc/execute!
     connectable
-    [(str "select id, number, \"gridX\" as grid_x, \"gridY\" as grid_y"
+    [(str "select id, number, name,"
+          " \"gridX\" as grid_x, \"gridY\" as grid_y"
           " from monsters where \"gameId\" = ? order by number")
      game-id]
     options)})
@@ -510,6 +511,14 @@
        [(str "insert into monsters (\"gameId\", number, \"gridX\", \"gridY\")"
              " values (?, ?, ?, ?)")
         game-id number (:grid_x entrance) (:grid_y entrance)]))))
+
+(defn set-monster-name! [ds game-id monster-id name]
+  (jdbc/with-transaction [tx ds]
+    (require-entity! tx "monsters" game-id monster-id)
+    (jdbc/execute-one!
+     tx
+     ["update monsters set name = ? where id = ? and \"gameId\" = ?"
+      name monster-id game-id])))
 
 (defn- move-card-to-drawn! [tx game-id card-type-id stack content]
   (jdbc/execute-one!

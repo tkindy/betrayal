@@ -82,6 +82,7 @@ playing as.
   contextual menu. Returning a room requires confirmation.
 - Drag a player or monster to another room.
 - Hover over a player token to see their character and current traits.
+- Hover over a monster token to see, add, or edit its shared name.
 - Roll ordinary or haunt dice.
 - Draw, minimize, inspect, give, and discard cards. A minimized drawn card
   remains visible without blocking the board. One inventory card can be open
@@ -96,7 +97,7 @@ playing as.
   while rooms, room cards, and players in the house can be centered in their
   floor view.
 - Select a character and update their traits and inventory.
-- Add and move monsters.
+- Add, name, and move monsters.
 - Flip, rotate, skip, and place rooms from the room stack.
 
 The browser submits drops and game controls as ordinary HTMX `POST` requests.

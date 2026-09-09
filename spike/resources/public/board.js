@@ -46,6 +46,7 @@
   const world = () => viewport.querySelector("#world");
   const roomDetails = () => viewport.querySelector("#room-details");
   const playerDetails = () => viewport.querySelector("#player-details");
+  const monsterDetails = () => viewport.querySelector("#monster-details");
   let hideDetailsTimer;
   let pendingRoomDetailsTimer;
   let pendingRoomDetailsTarget;
@@ -345,7 +346,7 @@
     clearTimeout(pendingRoomDetailsTimer);
     pendingRoomDetailsTarget = null;
     shownRoomDetailsTarget = null;
-    for (const details of [roomDetails(), playerDetails()]) {
+    for (const details of [roomDetails(), playerDetails(), monsterDetails()]) {
       if (!details) continue;
       details.hidden = true;
       details.setAttribute("aria-hidden", "true");
@@ -445,6 +446,8 @@
     if (roomActions) roomActions.hidden = !actionsAvailable;
     const playerCard = playerDetails();
     if (playerCard) playerCard.hidden = true;
+    const monsterCard = monsterDetails();
+    if (monsterCard) monsterCard.hidden = true;
     details.querySelector(".room-details-name").textContent =
       room.dataset.roomName;
     renderRoomDescription(
@@ -525,6 +528,8 @@
     if (!details) return;
     const roomCard = roomDetails();
     if (roomCard) roomCard.hidden = true;
+    const monsterCard = monsterDetails();
+    if (monsterCard) monsterCard.hidden = true;
     details.querySelector(".player-details-name").textContent =
       player.dataset.playerName;
     details.querySelector(".player-details-character").textContent =
@@ -538,13 +543,35 @@
     positionBoardDetails(details, player);
   }
 
+  function showMonsterDetails(monster) {
+    clearTimeout(hideDetailsTimer);
+    cancelPendingRoomDetails();
+    shownRoomDetailsTarget = null;
+    const details = monsterDetails();
+    if (!details) return;
+    const roomCard = roomDetails();
+    if (roomCard) roomCard.hidden = true;
+    const playerCard = playerDetails();
+    if (playerCard) playerCard.hidden = true;
+    const name = monster.dataset.monsterName;
+    details.querySelector(".monster-details-name").textContent =
+      name || `Monster ${monster.dataset.monsterNumber}`;
+    details.querySelector(".monster-details-number").textContent =
+      `Monster token ${monster.dataset.monsterNumber}`;
+    details.querySelector(".monster-details-id").value = monster.dataset.id;
+    details.querySelector(".monster-details-name-input").value = name;
+    details.hidden = false;
+    details.setAttribute("aria-hidden", "false");
+    positionBoardDetails(details, monster);
+  }
+
   function updateBoardDetails(event) {
     if (gesture) {
       hideBoardDetails();
       return;
     }
 
-    if (event.target.closest("#room-details")) {
+    if (event.target.closest("#room-details, #monster-details")) {
       clearTimeout(hideDetailsTimer);
       cancelPendingRoomDetails();
       return;
@@ -572,6 +599,12 @@
       return;
     }
 
+    const monster = event.target.closest(".token.monster");
+    if (monster) {
+      showMonsterDetails(monster);
+      return;
+    }
+
     cancelPendingRoomDetails();
     scheduleHideBoardDetails();
   }
@@ -580,7 +613,7 @@
     if (event.button !== 0) return;
     if (
       event.target.closest(
-        "#game-ui, #floor-navigation, #room-details, .open-spot"
+        "#game-ui, #floor-navigation, #room-details, #monster-details, .open-spot"
       )
     )
       return;
